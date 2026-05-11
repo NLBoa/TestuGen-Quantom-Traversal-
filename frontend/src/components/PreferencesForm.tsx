@@ -8,6 +8,14 @@ interface Props {
   setNoEvening: (v: boolean) => void;
   lunchBreak: boolean;
   setLunchBreak: (v: boolean) => void;
+  earlyBefore: number;
+  setEarlyBefore: (v: number) => void;
+  eveningAfter: number;
+  setEveningAfter: (v: number) => void;
+  lunchStartHour: number;
+  setLunchStartHour: (v: number) => void;
+  lunchEndHour: number;
+  setLunchEndHour: (v: number) => void;
   profWeight: number;
   setProfWeight: (v: number) => void;
   walkWeight: number;
@@ -16,6 +24,7 @@ interface Props {
   setTimeWeight: (v: number) => void;
   blockedSlots: Set<string>;
   toggleBlocked: (key: string) => void;
+  autoBlockedSlots: Set<string>;
   solver: string;
   setSolver: (v: string) => void;
   semester: string;
@@ -24,15 +33,38 @@ interface Props {
 
 const HOURS = Array.from({ length: 14 }, (_, i) => 8 + i); // 8am to 9pm
 
+function formatHour(h: number): string {
+  if (h === 0 || h === 12) return '12';
+  return h > 12 ? `${h - 12}` : `${h}`;
+}
+
+function formatHourLabel(h: number): string {
+  return `${formatHour(h)} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
+// Generate hour options for dropdowns
+function hourOptions(min: number, max: number) {
+  const opts = [];
+  for (let h = min; h <= max; h++) {
+    opts.push({ value: h, label: formatHourLabel(h) });
+  }
+  return opts;
+}
+
 export function PreferencesForm(props: Props) {
   const {
     noEarlyMorning, setNoEarlyMorning,
     noEvening, setNoEvening,
     lunchBreak, setLunchBreak,
+    earlyBefore, setEarlyBefore,
+    eveningAfter, setEveningAfter,
+    lunchStartHour, setLunchStartHour,
+    lunchEndHour, setLunchEndHour,
     profWeight, setProfWeight,
     walkWeight, setWalkWeight,
     timeWeight, setTimeWeight,
     blockedSlots, toggleBlocked,
+    autoBlockedSlots,
     solver, setSolver,
     semester, setSemester,
   } = props;
@@ -55,7 +87,14 @@ export function PreferencesForm(props: Props) {
 
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-3">Block Out Times</label>
-        <p className="text-xs text-gray-500 mb-2">Click cells to block time slots</p>
+        <div className="flex gap-3 mb-2">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span className="w-3 h-3 rounded-sm bg-red-900/70 inline-block"></span> Manual
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span className="w-3 h-3 rounded-sm bg-amber-900/70 inline-block"></span> From filters
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <div className="grid grid-cols-6 gap-px bg-gray-700 rounded-lg overflow-hidden" style={{ minWidth: '320px' }}>
             <div className="bg-gray-900 p-1 text-center text-xs text-gray-500"></div>
@@ -71,13 +110,19 @@ export function PreferencesForm(props: Props) {
                 </div>
                 {DAY_ORDER.map(day => {
                   const key = `${day}-${hour}`;
-                  const isBlocked = blockedSlots.has(key);
+                  const isManual = blockedSlots.has(key);
+                  const isAuto = autoBlockedSlots.has(key);
+                  const isBlocked = isManual || isAuto;
                   return (
                     <button
                       key={key}
                       onClick={() => toggleBlocked(key)}
                       className={`p-1 text-xs transition-colors ${
-                        isBlocked
+                        isManual && isAuto
+                          ? 'bg-amber-900/70 hover:bg-amber-800'
+                          : isAuto
+                          ? 'bg-amber-900/50 hover:bg-amber-800/60'
+                          : isManual
                           ? 'bg-red-900/70 hover:bg-red-800'
                           : 'bg-gray-800 hover:bg-gray-700'
                       }`}
@@ -90,34 +135,100 @@ export function PreferencesForm(props: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={noEarlyMorning}
-            onChange={e => setNoEarlyMorning(e.target.checked)}
-            className="w-4 h-4 accent-red-500"
-          />
-          <span className="text-sm text-gray-300">Avoid early morning (before 9 AM)</span>
-        </label>
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={noEvening}
-            onChange={e => setNoEvening(e.target.checked)}
-            className="w-4 h-4 accent-red-500"
-          />
-          <span className="text-sm text-gray-300">Avoid evening (after 5 PM)</span>
-        </label>
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={lunchBreak}
-            onChange={e => setLunchBreak(e.target.checked)}
-            className="w-4 h-4 accent-red-500"
-          />
-          <span className="text-sm text-gray-300">Keep lunch free (11:30 AM - 1 PM)</span>
-        </label>
+      <div className="space-y-3">
+        {/* Early morning filter */}
+        <div className="bg-gray-800/50 rounded-lg p-3">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={noEarlyMorning}
+              onChange={e => setNoEarlyMorning(e.target.checked)}
+              className="w-4 h-4 accent-red-500"
+            />
+            <span className="text-sm text-gray-300">Avoid early morning</span>
+          </label>
+          {noEarlyMorning && (
+            <div className="mt-2 ml-7 flex items-center gap-2">
+              <span className="text-xs text-gray-400">Before</span>
+              <select
+                value={earlyBefore}
+                onChange={e => setEarlyBefore(Number(e.target.value))}
+                className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+              >
+                {hourOptions(8, 12).map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Evening filter */}
+        <div className="bg-gray-800/50 rounded-lg p-3">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={noEvening}
+              onChange={e => setNoEvening(e.target.checked)}
+              className="w-4 h-4 accent-red-500"
+            />
+            <span className="text-sm text-gray-300">Avoid evening</span>
+          </label>
+          {noEvening && (
+            <div className="mt-2 ml-7 flex items-center gap-2">
+              <span className="text-xs text-gray-400">After</span>
+              <select
+                value={eveningAfter}
+                onChange={e => setEveningAfter(Number(e.target.value))}
+                className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+              >
+                {hourOptions(15, 21).map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Lunch filter */}
+        <div className="bg-gray-800/50 rounded-lg p-3">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={lunchBreak}
+              onChange={e => setLunchBreak(e.target.checked)}
+              className="w-4 h-4 accent-red-500"
+            />
+            <span className="text-sm text-gray-300">Keep lunch free</span>
+          </label>
+          {lunchBreak && (
+            <div className="mt-2 ml-7 flex items-center gap-2">
+              <select
+                value={lunchStartHour}
+                onChange={e => {
+                  const v = Number(e.target.value);
+                  setLunchStartHour(v);
+                  if (v >= lunchEndHour) setLunchEndHour(v + 1);
+                }}
+                className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+              >
+                {hourOptions(10, 15).map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <span className="text-xs text-gray-400">to</span>
+              <select
+                value={lunchEndHour}
+                onChange={e => setLunchEndHour(Number(e.target.value))}
+                className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+              >
+                {hourOptions(lunchStartHour + 1, 16).map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       <div>

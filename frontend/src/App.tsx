@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { CourseResult, OptimizationRequest, BlockedSlot } from './types';
 import { CourseSearch } from './components/CourseSearch';
 import { PreferencesForm } from './components/PreferencesForm';
 import { WeeklyCalendar } from './components/WeeklyCalendar';
 import { ScheduleResults } from './components/ScheduleResults';
 import { useOptimizer } from './hooks/useOptimizer';
+import { DAY_ORDER } from './utils/timeUtils';
 
 function App() {
   const [selectedCourses, setSelectedCourses] = useState<CourseResult[]>([]);
@@ -12,11 +13,39 @@ function App() {
   const [noEarlyMorning, setNoEarlyMorning] = useState(true);
   const [noEvening, setNoEvening] = useState(false);
   const [lunchBreak, setLunchBreak] = useState(true);
+  const [earlyBefore, setEarlyBefore] = useState(9);
+  const [eveningAfter, setEveningAfter] = useState(17);
+  const [lunchStartHour, setLunchStartHour] = useState(11);
+  const [lunchEndHour, setLunchEndHour] = useState(13);
   const [profWeight, setProfWeight] = useState(0.4);
   const [walkWeight, setWalkWeight] = useState(0.3);
   const [timeWeight, setTimeWeight] = useState(0.3);
   const [blockedSlots, setBlockedSlots] = useState<Set<string>>(new Set());
   const [solver, setSolver] = useState('qaoa');
+
+  // Auto-blocked slots computed from checkbox filters
+  const autoBlockedSlots = useMemo(() => {
+    const auto = new Set<string>();
+    DAY_ORDER.forEach(day => {
+      if (noEarlyMorning) {
+        for (let h = 8; h < earlyBefore; h++) auto.add(`${day}-${h}`);
+      }
+      if (noEvening) {
+        for (let h = eveningAfter; h <= 21; h++) auto.add(`${day}-${h}`);
+      }
+      if (lunchBreak) {
+        for (let h = lunchStartHour; h < lunchEndHour; h++) auto.add(`${day}-${h}`);
+      }
+    });
+    return auto;
+  }, [noEarlyMorning, noEvening, lunchBreak, earlyBefore, eveningAfter, lunchStartHour, lunchEndHour]);
+
+  // Merged set for API requests
+  const allBlockedSlots = useMemo(() => {
+    const merged = new Set(blockedSlots);
+    autoBlockedSlots.forEach(s => merged.add(s));
+    return merged;
+  }, [blockedSlots, autoBlockedSlots]);
 
   const { status, schedules, selectedIndex, setSelectedIndex, error, meta, runOptimize } = useOptimizer();
 
@@ -44,7 +73,7 @@ function App() {
     if (selectedCourses.length === 0) return;
 
     const blocked_times: BlockedSlot[] = [];
-    blockedSlots.forEach(key => {
+    allBlockedSlots.forEach(key => {
       const [day, hourStr] = key.split('-');
       const hour = parseInt(hourStr);
       blocked_times.push({
@@ -61,7 +90,7 @@ function App() {
       semester,
       preferences: {
         blocked_times,
-        lunch_window: lunchBreak ? ['11:30', '13:00'] : null,
+        lunch_window: lunchBreak ? [`${lunchStartHour}:00`, `${lunchEndHour}:00`] : null,
         no_early_morning: noEarlyMorning,
         no_evening: noEvening,
       },
@@ -106,10 +135,15 @@ function App() {
                 noEarlyMorning={noEarlyMorning} setNoEarlyMorning={setNoEarlyMorning}
                 noEvening={noEvening} setNoEvening={setNoEvening}
                 lunchBreak={lunchBreak} setLunchBreak={setLunchBreak}
+                earlyBefore={earlyBefore} setEarlyBefore={setEarlyBefore}
+                eveningAfter={eveningAfter} setEveningAfter={setEveningAfter}
+                lunchStartHour={lunchStartHour} setLunchStartHour={setLunchStartHour}
+                lunchEndHour={lunchEndHour} setLunchEndHour={setLunchEndHour}
                 profWeight={profWeight} setProfWeight={setProfWeight}
                 walkWeight={walkWeight} setWalkWeight={setWalkWeight}
                 timeWeight={timeWeight} setTimeWeight={setTimeWeight}
                 blockedSlots={blockedSlots} toggleBlocked={toggleBlocked}
+                autoBlockedSlots={autoBlockedSlots}
                 solver={solver} setSolver={setSolver}
                 semester={semester} setSemester={setSemester}
               />
