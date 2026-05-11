@@ -124,4 +124,7 @@ def build_qubo_matrix(
 
         Q[i, i] += penalty * weights.time_preference
 
+    # Sanitize: replace any inf/NaN with large finite penalty
+    Q = np.nan_to_num(Q, nan=0.0, posinf=1e6, neginf=-1e6)
+
     return Q, variable_map

@@ -259,7 +259,9 @@ def _sample_qaoa(
                 chosen = rng.choice(indices)
                 bits[chosen] = 1
 
-        energy = float(np.array(bits) @ Q @ np.array(bits))
+        energy = float(np.array(bits, dtype=np.float64) @ Q @ np.array(bits, dtype=np.float64))
+        if not np.isfinite(energy):
+            energy = 1e12  # treat as very bad
         candidates.append((energy, bits))
 
     candidates.sort(key=lambda x: x[0])

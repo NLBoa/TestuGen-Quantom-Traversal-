@@ -47,7 +47,7 @@ function App() {
     return merged;
   }, [blockedSlots, autoBlockedSlots]);
 
-  const { status, schedules, selectedIndex, setSelectedIndex, error, meta, runOptimize } = useOptimizer();
+  const { status, schedules, selectedIndex, setSelectedIndex, error, warnings, meta, runOptimize } = useOptimizer();
 
   const handleAddCourse = useCallback((course: CourseResult) => {
     setSelectedCourses(prev => {
@@ -170,6 +170,14 @@ function App() {
             {error && (
               <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 text-sm text-red-300">
                 {error}
+              </div>
+            )}
+
+            {warnings.length > 0 && (
+              <div className="bg-yellow-900/30 border border-yellow-700 rounded-lg p-3 text-sm text-yellow-300">
+                {warnings.map((w, i) => (
+                  <div key={i}>{w}</div>
+                ))}
               </div>
             )}
 

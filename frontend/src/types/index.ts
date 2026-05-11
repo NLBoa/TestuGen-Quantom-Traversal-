@@ -30,6 +30,7 @@ export interface OptimizationResponse {
   schedules: Schedule[];
   num_variables: number;
   solver_used: string;
+  warnings: string[];
 }
 
 export interface CourseResult {

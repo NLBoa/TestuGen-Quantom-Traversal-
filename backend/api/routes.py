@@ -101,6 +101,38 @@ async def search_courses(q: str = ""):
     return courses
 
 
+async def _fetch_jupiterp_seats(course_id: str) -> dict:
+    """Fetch accurate seat data from Jupiterp API. Returns {sec_code: {open_seats, total_seats, waitlist}}."""
+    cache_key = f"jupiterp_seats:{course_id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        client = planetterp._get_client()
+        resp = await client.get(
+            f"{config.JUPITERP_BASE}/sections",
+            params={"courseCodes": course_id},
+        )
+        resp.raise_for_status()
+        sections = resp.json()
+    except Exception as e:
+        logger.warning(f"Jupiterp seat fetch failed for {course_id}: {e}")
+        return {}
+
+    result = {}
+    for s in sections:
+        sec_code = s.get("sec_code", "")
+        result[sec_code] = {
+            "open_seats": int(s.get("open_seats", 0) or 0),
+            "total_seats": int(s.get("total_seats", 0) or 0),
+            "waitlist": int(s.get("waitlist", 0) or 0),
+        }
+
+    cache.set(cache_key, result, 300)  # 5 min cache — seats change fast
+    return result
+
+
 @router.get("/courses/{course_id}/sections")
 async def get_course_sections(course_id: str, semester: str = "202508"):
     try:
@@ -119,11 +151,12 @@ async def get_course_sections(course_id: str, semester: str = "202508"):
         for instr in sec.get("instructors", []):
             prof_names.add(instr)
 
-    # Fetch all professor ratings + course GPA in parallel
+    # Fetch professor ratings, course GPA, AND accurate seat data from Jupiterp in parallel
     rating_tasks = {name: planetterp.get_professor_rating(name) for name in prof_names}
     gpa_task = planetterp.get_course_avg_gpa(course_id.upper())
+    seats_task = _fetch_jupiterp_seats(course_id.upper())
 
-    all_tasks = list(rating_tasks.values()) + [gpa_task]
+    all_tasks = list(rating_tasks.values()) + [gpa_task, seats_task]
     all_results = await asyncio.gather(*all_tasks, return_exceptions=True)
 
     prof_ratings = {}
@@ -131,7 +164,8 @@ async def get_course_sections(course_id: str, semester: str = "202508"):
         result = all_results[i]
         prof_ratings[name] = result if isinstance(result, float) else config.DEFAULT_PROFESSOR_RATING
 
-    avg_gpa = all_results[-1] if isinstance(all_results[-1], float) else config.DEFAULT_GPA
+    avg_gpa = all_results[-2] if isinstance(all_results[-2], float) else config.DEFAULT_GPA
+    jupiterp_seats = all_results[-1] if isinstance(all_results[-1], dict) else {}
 
     results = []
     for sec in raw_sections:
@@ -152,15 +186,28 @@ async def get_course_sections(course_id: str, semester: str = "202508"):
                 "lng": coords[1] if coords else None,
             })
 
+        # Use Jupiterp seat data (accurate) if available, fall back to umd.io (stale)
+        section_id = sec.get("section_id", "")
+        # section_id format: "CMSC216-0101", sec_code is just "0101"
+        sec_code = section_id.split("-")[-1] if "-" in section_id else section_id
+        jp_seats = jupiterp_seats.get(sec_code, {})
+
+        if jp_seats:
+            open_seats = jp_seats["open_seats"]
+            total_seats = jp_seats["total_seats"]
+        else:
+            open_seats = int(sec.get("open_seats", 0) or 0)
+            total_seats = int(sec.get("seats", 0) or 0)
+
         results.append({
-            "section_id": sec.get("section_id", ""),
+            "section_id": section_id,
             "course_id": course_id.upper(),
             "instructors": instructors,
             "meetings": meetings,
             "professor_rating": rating,
             "avg_gpa": avg_gpa,
-            "total_seats": sec.get("seats", 0),
-            "open_seats": sec.get("open_seats", 0),
+            "total_seats": total_seats,
+            "open_seats": open_seats,
         })
 
     return results
@@ -185,6 +232,7 @@ async def optimize(request: OptimizationRequest):
 
     # Fetch sections sequentially to avoid overwhelming umd.io
     failed_courses = []
+    full_courses = []  # courses where ALL sections have 0 open seats
     sections: list[Section] = []
 
     for cid in request.course_ids:
@@ -197,7 +245,13 @@ async def optimize(request: OptimizationRequest):
             failed_courses.append(cid)
             course_sections = []
 
-        for sec_data in course_sections:
+        # Filter out sections with no open seats
+        open_sections = [s for s in course_sections if int(s.get("open_seats", 0) or 0) > 0]
+        if course_sections and not open_sections:
+            full_courses.append(cid)
+            logger.info(f"All sections full for {cid}, skipping")
+
+        for sec_data in open_sections:
             meetings = [
                 Meeting(
                     days=m["days"],
@@ -225,6 +279,8 @@ async def optimize(request: OptimizationRequest):
         msg = "No sections found."
         if failed_courses:
             msg += f" Failed to load: {', '.join(failed_courses)}."
+        if full_courses:
+            msg += f" All sections full: {', '.join(full_courses)}."
         msg += " The UMD API may be slow — try again."
         raise HTTPException(status_code=404, detail=msg)
 
@@ -292,8 +348,15 @@ async def optimize(request: OptimizationRequest):
             solver=sched.solver,
         ))
 
+    warnings = []
+    if full_courses:
+        warnings.append(f"All sections full (excluded): {', '.join(full_courses)}")
+    if failed_courses:
+        warnings.append(f"Failed to load: {', '.join(failed_courses)}")
+
     return OptimizationResponse(
         schedules=schedule_outputs,
         num_variables=len(sections),
         solver_used=solver_used,
+        warnings=warnings,
     )

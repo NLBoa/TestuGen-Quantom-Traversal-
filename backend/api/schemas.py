@@ -62,3 +62,4 @@ class OptimizationResponse(BaseModel):
     schedules: list[ScheduleOut]
     num_variables: int
     solver_used: str
+    warnings: list[str] = []

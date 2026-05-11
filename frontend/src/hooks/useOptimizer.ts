@@ -8,14 +8,17 @@ export function useOptimizer() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [error, setError] = useState('');
   const [meta, setMeta] = useState<{ numVariables: number; solver: string } | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   async function runOptimize(request: OptimizationRequest) {
     setStatus('loading');
     setError('');
+    setWarnings([]);
     try {
       const response = await optimize(request);
       setSchedules(response.schedules);
       setMeta({ numVariables: response.num_variables, solver: response.solver_used });
+      setWarnings(response.warnings || []);
       setSelectedIndex(0);
       setStatus(response.schedules.length > 0 ? 'done' : 'error');
       if (response.schedules.length === 0) {
@@ -27,5 +30,5 @@ export function useOptimizer() {
     }
   }
 
-  return { status, schedules, selectedIndex, setSelectedIndex, error, meta, runOptimize };
+  return { status, schedules, selectedIndex, setSelectedIndex, error, warnings, meta, runOptimize };
 }

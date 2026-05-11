@@ -2,6 +2,7 @@ from __future__ import annotations
 
 UMDIO_BASE = "https://api.umd.io/v1"
 PLANETTERP_BASE = "https://planetterp.com/api/v1"
+JUPITERP_BASE = "https://api.jupiterp.com/v0"
 
 DEFAULT_SEMESTER = "202508"
 
