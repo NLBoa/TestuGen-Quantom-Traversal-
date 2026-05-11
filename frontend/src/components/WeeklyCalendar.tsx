@@ -80,7 +80,7 @@ export function WeeklyCalendar({ schedule }: Props) {
                         borderLeft: `3px solid ${color}`,
                       }}
                     >
-                      <div className="text-xs font-semibold text-white truncate">{section.course_id}</div>
+                      <div className="text-xs font-semibold text-white truncate">{section.course_id} - {section.section_id.split('-').pop()}</div>
                       {height > 30 && (
                         <div className="text-[10px] text-gray-300 truncate">
                           {minutesToTime(meeting.start_time)} - {minutesToTime(meeting.end_time)}
