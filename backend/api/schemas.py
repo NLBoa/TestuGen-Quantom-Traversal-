@@ -28,6 +28,7 @@ class OptimizationRequest(BaseModel):
     semester: str = "202508"
     preferences: TimePreferenceInput = TimePreferenceInput()
     weights: PriorityWeightsInput = PriorityWeightsInput()
+    professor_prefs: dict[str, str] = {}  # course_id -> preferred professor name
     num_results: int = 5
     solver: str = "qaoa"
 
@@ -58,6 +59,9 @@ class ScheduleOut(BaseModel):
     gap_score: float
     time_score: float
     solver: str
+    avg_professor_rating: float = 0.0  # raw 0-5 avg for display
+    pref_match_count: int = 0
+    pref_total_count: int = 0
 
 
 class OptimizationResponse(BaseModel):

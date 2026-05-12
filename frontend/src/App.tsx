@@ -9,6 +9,7 @@ import { DAY_ORDER } from './utils/timeUtils';
 
 function App() {
   const [selectedCourses, setSelectedCourses] = useState<CourseResult[]>([]);
+  const [professorPrefs, setProfessorPrefs] = useState<Record<string, string>>({});
   const [semester, setSemester] = useState('202608');
   const [noEarlyMorning, setNoEarlyMorning] = useState(true);
   const [noEvening, setNoEvening] = useState(false);
@@ -60,6 +61,22 @@ function App() {
 
   const handleRemoveCourse = useCallback((courseId: string) => {
     setSelectedCourses(prev => prev.filter(c => c.course_id !== courseId));
+    setProfessorPrefs(prev => {
+      const next = { ...prev };
+      delete next[courseId];
+      return next;
+    });
+  }, []);
+
+  const handleProfessorChange = useCallback((courseId: string, professor: string) => {
+    setProfessorPrefs(prev => {
+      if (!professor) {
+        const next = { ...prev };
+        delete next[courseId];
+        return next;
+      }
+      return { ...prev, [courseId]: professor };
+    });
   }, []);
 
   const toggleBlocked = useCallback((key: string) => {
@@ -90,6 +107,7 @@ function App() {
     const request: OptimizationRequest = {
       course_ids: selectedCourses.map(c => c.course_id),
       semester,
+      professor_prefs: professorPrefs,
       preferences: {
         blocked_times,
         lunch_window: lunchBreak ? [`${lunchStartHour}:00`, `${lunchEndHour}:00`] : null,
@@ -130,6 +148,9 @@ function App() {
                 selectedCourses={selectedCourses}
                 onAdd={handleAddCourse}
                 onRemove={handleRemoveCourse}
+                professorPrefs={professorPrefs}
+                onProfessorChange={handleProfessorChange}
+                semester={semester}
               />
             </div>
 

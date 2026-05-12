@@ -40,6 +40,9 @@ class ScheduleResult:
     gap_score: float
     time_score: float
     solver: str
+    avg_professor_rating: float = 0.0  # raw 0-5 avg for display
+    pref_match_count: int = 0
+    pref_total_count: int = 0
     bitstring: str = ""
 
 

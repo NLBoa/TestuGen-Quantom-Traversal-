@@ -44,8 +44,15 @@ export function ScheduleResults({ schedules, selectedIndex, onSelect, meta }: Pr
             <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
               <span>Match: <span className="text-green-400 font-semibold">{schedule.total_score.toFixed(0)}%</span></span>
             </div>
-            <div className="flex gap-3 text-xs text-gray-500">
-              <span>Prof <span className="text-yellow-400">★ {(schedule.professor_score / 20).toFixed(1)}</span></span>
+            <div className="flex gap-3 text-xs text-gray-500 flex-wrap">
+              <span>Prof <span className="text-yellow-400">★ {schedule.avg_professor_rating.toFixed(1)}</span></span>
+              {schedule.pref_total_count > 0 && (
+                <span>
+                  Pref <span className={schedule.pref_match_count === schedule.pref_total_count ? 'text-green-400' : 'text-orange-400'}>
+                    {schedule.pref_match_count}/{schedule.pref_total_count} matched
+                  </span>
+                </span>
+              )}
               <span>Time <span className="text-blue-400">{schedule.time_score.toFixed(0)}%</span></span>
               <span>Gap <span className="text-emerald-400">{schedule.gap_score.toFixed(0)}%</span></span>
             </div>

@@ -9,6 +9,27 @@ export async function searchCourses(query: string): Promise<CourseResult[]> {
   return res.json();
 }
 
+export async function fetchProfessors(courseId: string, _semester?: string): Promise<string[]> {
+  try {
+    // Hit Jupiterp directly — much faster than backend sections endpoint
+    // (skips umd.io + PlanetTerp rating lookups we don't need here)
+    const res = await fetch(
+      `https://api.jupiterp.com/v0/sections?courseCodes=${encodeURIComponent(courseId.toUpperCase())}`
+    );
+    if (!res.ok) return [];
+    const sections: Array<{ instructors?: string[] }> = await res.json();
+    const profs = new Set<string>();
+    for (const sec of sections) {
+      for (const instr of sec.instructors || []) {
+        if (instr && instr !== 'Instructor: TBA') profs.add(instr);
+      }
+    }
+    return [...profs].sort();
+  } catch {
+    return [];
+  }
+}
+
 export async function optimize(request: OptimizationRequest): Promise<OptimizationResponse> {
   const res = await fetch(`${API_BASE}/optimize`, {
     method: 'POST',

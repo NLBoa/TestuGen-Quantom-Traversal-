@@ -61,16 +61,39 @@ def score_schedule(
     sections: list[Section],
     preferences: TimePreference,
     weights: PriorityWeights,
+    professor_prefs: dict[str, str] | None = None,
 ) -> dict:
     """Compute normalized scores for a schedule. Higher = better.
     Returns dict with professor_score, gap_score, time_score, total_score.
     All scores on 0-100 scale.
     """
     if not sections:
-        return {"professor_score": 0, "gap_score": 0, "time_score": 0, "total_score": 0}
+        return {"professor_score": 0, "gap_score": 0, "time_score": 0, "total_score": 0,
+                "avg_professor_rating": 0.0, "pref_match_count": 0, "pref_total_count": 0}
 
-    # Professor score: average rating out of 5, scaled to 0-100
-    prof_score = (sum(s.professor_rating for s in sections) / len(sections)) / 5.0 * 100
+    # Raw average professor rating (0-5 scale, for display)
+    avg_rating = sum(s.professor_rating for s in sections) / len(sections)
+
+    # Professor score for ranking: rating component (0-60) + preference match component (0-40)
+    # Pref match weighs more than raw ratings
+    rating_component = (avg_rating / 5.0) * 60  # 0-60 points from ratings
+
+    pref_match_count = 0
+    pref_total_count = 0
+    if professor_prefs:
+        for s in sections:
+            pref = professor_prefs.get(s.course_id)
+            if pref:
+                pref_total_count += 1
+                if pref in s.instructors:
+                    pref_match_count += 1
+
+    if pref_total_count > 0:
+        pref_component = (pref_match_count / pref_total_count) * 40  # 0-40 points from pref match
+    else:
+        pref_component = 40  # no prefs = full marks (don't penalize)
+
+    prof_score = rating_component + pref_component
 
     # Gap score: how well gaps between classes fit min/max preference
     all_gaps = []
@@ -127,6 +150,9 @@ def score_schedule(
         "gap_score": round(gap_score, 2),
         "time_score": round(time_score, 2),
         "total_score": round(total, 2),
+        "avg_professor_rating": round(avg_rating, 2),
+        "pref_match_count": pref_match_count,
+        "pref_total_count": pref_total_count,
     }
 
 
@@ -134,6 +160,7 @@ def build_qubo_matrix(
     sections: list[Section],
     preferences: TimePreference,
     weights: PriorityWeights,
+    professor_prefs: dict[str, str] | None = None,
 ) -> tuple[np.ndarray, list[VariableMapping]]:
     N = len(sections)
     Q = np.zeros((N, N))
@@ -162,6 +189,17 @@ def build_qubo_matrix(
     for i, s in enumerate(sections):
         normalized = s.professor_rating / 5.0
         Q[i, i] += -normalized * weights.professor_rating * 10
+
+    # 3b. Professor preference bonus — strongly prefer sections with requested professor
+    if professor_prefs:
+        LAMBDA_PROF_PREF = 30.0  # strong bonus, more important than raw rating
+        for i, s in enumerate(sections):
+            pref = professor_prefs.get(s.course_id)
+            if pref:
+                if pref in s.instructors:
+                    Q[i, i] += -LAMBDA_PROF_PREF  # negative = reward (minimize)
+                else:
+                    Q[i, i] += LAMBDA_PROF_PREF * 0.3  # mild penalty for non-preferred
 
     # 4. Gap between classes penalty (strong — treat as semi-hard constraint)
     LAMBDA_GAP = 50.0  # strong enough to override soft preferences

@@ -1,18 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import type { CourseResult } from '../types';
-import { searchCourses } from '../api/client';
+import { searchCourses, fetchProfessors } from '../api/client';
 
 interface Props {
   selectedCourses: CourseResult[];
   onAdd: (course: CourseResult) => void;
   onRemove: (courseId: string) => void;
+  professorPrefs: Record<string, string>;
+  onProfessorChange: (courseId: string, professor: string) => void;
+  semester: string;
 }
 
-export function CourseSearch({ selectedCourses, onAdd, onRemove }: Props) {
+export function CourseSearch({ selectedCourses, onAdd, onRemove, professorPrefs, onProfessorChange, semester }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CourseResult[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [professorLists, setProfessorLists] = useState<Record<string, string[]>>({});
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const containerRef = useRef<HTMLDivElement>(null);
   const requestIdRef = useRef(0);
@@ -29,7 +33,6 @@ export function CourseSearch({ selectedCourses, onAdd, onRemove }: Props) {
       setLoading(true);
       try {
         const data = await searchCourses(query);
-        // Only update if this is still the latest request
         if (thisRequest === requestIdRef.current) {
           const filtered = data.filter(c => !selectedCourses.some(s => s.course_id === c.course_id));
           setResults(filtered);
@@ -45,6 +48,17 @@ export function CourseSearch({ selectedCourses, onAdd, onRemove }: Props) {
       }
     }, 200);
   }, [query, selectedCourses]);
+
+  // Fetch professors when a course is added
+  useEffect(() => {
+    for (const course of selectedCourses) {
+      if (!professorLists[course.course_id]) {
+        fetchProfessors(course.course_id, semester).then(profs => {
+          setProfessorLists(prev => ({ ...prev, [course.course_id]: profs }));
+        });
+      }
+    }
+  }, [selectedCourses, semester]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -99,21 +113,39 @@ export function CourseSearch({ selectedCourses, onAdd, onRemove }: Props) {
       )}
 
       {selectedCourses.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-3">
-          {selectedCourses.map(course => (
-            <span
-              key={course.course_id}
-              className="inline-flex items-center gap-1 px-3 py-1 bg-red-900/50 text-red-300 border border-red-700 rounded-full text-sm"
-            >
-              {course.course_id}
-              <button
-                onClick={() => onRemove(course.course_id)}
-                className="ml-1 hover:text-white"
-              >
-                &times;
-              </button>
-            </span>
-          ))}
+        <div className="space-y-2 mt-3">
+          {selectedCourses.map(course => {
+            const profs = professorLists[course.course_id] || [];
+            const selectedProf = professorPrefs[course.course_id] || '';
+            return (
+              <div key={course.course_id} className="bg-gray-800/60 rounded-lg p-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-red-400">{course.course_id}</span>
+                  <button
+                    onClick={() => onRemove(course.course_id)}
+                    className="text-gray-500 hover:text-white text-sm"
+                  >
+                    &times;
+                  </button>
+                </div>
+                <div className="text-xs text-gray-400 mb-1.5">{course.name}</div>
+                {profs.length > 0 ? (
+                  <select
+                    value={selectedProf}
+                    onChange={e => onProfessorChange(course.course_id, e.target.value)}
+                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+                  >
+                    <option value="">Any professor</option>
+                    {profs.map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-xs text-gray-600">Loading professors...</div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

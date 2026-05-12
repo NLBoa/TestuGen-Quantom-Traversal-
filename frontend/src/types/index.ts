@@ -24,6 +24,9 @@ export interface Schedule {
   gap_score: number;
   time_score: number;
   solver: string;
+  avg_professor_rating: number;
+  pref_match_count: number;
+  pref_total_count: number;
 }
 
 export interface OptimizationResponse {
@@ -49,6 +52,7 @@ export interface BlockedSlot {
 export interface OptimizationRequest {
   course_ids: string[];
   semester: string;
+  professor_prefs: Record<string, string>;  // course_id -> preferred professor
   preferences: {
     blocked_times: BlockedSlot[];
     lunch_window: string[] | null;

@@ -233,6 +233,7 @@ async def optimize(request: OptimizationRequest):
     # Fetch sections sequentially to avoid overwhelming umd.io
     failed_courses = []
     full_courses = []  # courses where ALL sections have 0 open seats
+    warnings_list = []
     sections: list[Section] = []
 
     for cid in request.course_ids:
@@ -250,6 +251,20 @@ async def optimize(request: OptimizationRequest):
         if course_sections and not open_sections:
             full_courses.append(cid)
             logger.info(f"All sections full for {cid}, skipping")
+
+        # Filter by preferred professor if specified
+        pref_prof = request.professor_prefs.get(cid)
+        if pref_prof:
+            prof_sections = [s for s in open_sections if pref_prof in s.get("instructors", [])]
+            if prof_sections:
+                open_sections = prof_sections
+            else:
+                # Check if professor has sections but all full
+                all_prof_sections = [s for s in course_sections if pref_prof in s.get("instructors", [])]
+                if all_prof_sections:
+                    warnings_list.append(f"{cid}: All sections with {pref_prof} are full — using other professors")
+                else:
+                    warnings_list.append(f"{cid}: {pref_prof} not found — using all professors")
 
         for sec_data in open_sections:
             meetings = [
@@ -298,7 +313,7 @@ async def optimize(request: OptimizationRequest):
         time_preference=request.weights.time_preference,
     )
 
-    Q, variable_map = build_qubo_matrix(sections, prefs, weights)
+    Q, variable_map = build_qubo_matrix(sections, prefs, weights, request.professor_prefs)
 
     solver_used = request.solver
     schedules = []
@@ -316,11 +331,14 @@ async def optimize(request: OptimizationRequest):
 
     # Re-score ALL schedules uniformly using user preferences and weights
     for sched in schedules:
-        scores = score_schedule(sched.sections, prefs, weights)
+        scores = score_schedule(sched.sections, prefs, weights, request.professor_prefs)
         sched.professor_score = scores["professor_score"]
         sched.gap_score = scores["gap_score"]
         sched.time_score = scores["time_score"]
         sched.total_score = scores["total_score"]
+        sched.avg_professor_rating = scores["avg_professor_rating"]
+        sched.pref_match_count = scores["pref_match_count"]
+        sched.pref_total_count = scores["pref_total_count"]
 
     # Deduplicate: same set of sections = same schedule regardless of solver
     seen_section_sets: set[frozenset[str]] = set()
@@ -367,17 +385,19 @@ async def optimize(request: OptimizationRequest):
             gap_score=sched.gap_score,
             time_score=sched.time_score,
             solver=sched.solver,
+            avg_professor_rating=sched.avg_professor_rating,
+            pref_match_count=sched.pref_match_count,
+            pref_total_count=sched.pref_total_count,
         ))
 
-    warnings = []
     if full_courses:
-        warnings.append(f"All sections full (excluded): {', '.join(full_courses)}")
+        warnings_list.append(f"All sections full (excluded): {', '.join(full_courses)}")
     if failed_courses:
-        warnings.append(f"Failed to load: {', '.join(failed_courses)}")
+        warnings_list.append(f"Failed to load: {', '.join(failed_courses)}")
 
     return OptimizationResponse(
         schedules=schedule_outputs,
         num_variables=len(sections),
         solver_used=solver_used,
-        warnings=warnings,
+        warnings=warnings_list,
     )
