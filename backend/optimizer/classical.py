@@ -39,7 +39,7 @@ def _decode_schedule(
         sections=selected,
         total_score=0.0,
         professor_score=prof_score,
-        walking_score=0.0,
+        gap_score=0.0,
         time_score=0.0,
         solver="classical",
         bitstring=bitstring_str,
@@ -103,7 +103,7 @@ def greedy_solve(
                     sections=list(chosen),
                     total_score=prof_score,
                     professor_score=prof_score,
-                    walking_score=0.0,
+                    gap_score=0.0,
                     time_score=0.0,
                     solver="classical",
                 ))

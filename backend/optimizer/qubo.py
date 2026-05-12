@@ -6,7 +6,7 @@ import numpy as np
 
 from .. import config
 from .models import Section, Meeting, VariableMapping, TimePreference, PriorityWeights
-from ..data.buildings import walking_time_minutes
+# walking_time_minutes no longer needed — replaced with gap-based scoring
 
 
 def _parse_time(t: str) -> int:
@@ -43,21 +43,18 @@ def _meeting_in_blocked(meeting: Meeting, blocked: dict) -> bool:
     return meeting.start_time < be and bs < meeting.end_time
 
 
-def _compute_pairwise_walk(sec_a: Section, sec_b: Section) -> float:
-    max_walk = 0.0
+def _compute_pairwise_gaps(sec_a: Section, sec_b: Section) -> list[int]:
+    """Return list of gap durations (minutes) between consecutive same-day meetings."""
+    gaps = []
     for ma in sec_a.meetings:
         for mb in sec_b.meetings:
             if not _days_overlap(ma.days, mb.days):
                 continue
-            if ma.lat is None or mb.lat is None:
-                continue
-            gap_ok = (ma.end_time <= mb.start_time and mb.start_time - ma.end_time < 30) or \
-                     (mb.end_time <= ma.start_time and ma.start_time - mb.end_time < 30)
-            if not gap_ok:
-                continue
-            walk = walking_time_minutes(ma.lat, ma.lng, mb.lat, mb.lng)
-            max_walk = max(max_walk, walk)
-    return max_walk
+            if ma.end_time <= mb.start_time:
+                gaps.append(mb.start_time - ma.end_time)
+            elif mb.end_time <= ma.start_time:
+                gaps.append(ma.start_time - mb.end_time)
+    return gaps
 
 
 def score_schedule(
@@ -66,30 +63,30 @@ def score_schedule(
     weights: PriorityWeights,
 ) -> dict:
     """Compute normalized scores for a schedule. Higher = better.
-    Returns dict with professor_score, walking_score, time_score, total_score.
+    Returns dict with professor_score, gap_score, time_score, total_score.
     All scores on 0-100 scale.
     """
     if not sections:
-        return {"professor_score": 0, "walking_score": 0, "time_score": 0, "total_score": 0}
+        return {"professor_score": 0, "gap_score": 0, "time_score": 0, "total_score": 0}
 
     # Professor score: average rating out of 5, scaled to 0-100
     prof_score = (sum(s.professor_rating for s in sections) / len(sections)) / 5.0 * 100
 
-    # Walking score: 100 = no walking, decreases with walk time
-    import itertools
-    total_walk = 0.0
-    pairs = 0
+    # Gap score: how well gaps between classes fit min/max preference
+    all_gaps = []
     for a, b in itertools.combinations(sections, 2):
-        walk = _compute_pairwise_walk(a, b)
-        if walk > 0:
-            total_walk += walk
-            pairs += 1
-    # Max walk ~15min between buildings. More walk = lower score.
-    if pairs > 0:
-        avg_walk = total_walk / pairs
-        walk_score = max(0, 100 - (avg_walk / 15.0) * 100)
+        all_gaps.extend(_compute_pairwise_gaps(a, b))
+
+    if all_gaps and (preferences.min_gap is not None or preferences.max_gap is not None):
+        violations = 0
+        for gap in all_gaps:
+            if preferences.min_gap is not None and gap < preferences.min_gap:
+                violations += 1
+            if preferences.max_gap is not None and gap > preferences.max_gap:
+                violations += 1
+        gap_score = max(0, 100 - (violations / len(all_gaps)) * 100)
     else:
-        walk_score = 100.0
+        gap_score = 100.0  # no preference = perfect score
 
     # Time score: 100 = no conflicts with preferences, penalty per violation
     time_penalties = 0
@@ -118,17 +115,16 @@ def score_schedule(
     # Weighted total
     total = (
         prof_score * weights.professor_rating +
-        walk_score * weights.walking_distance +
+        gap_score * weights.gap_preference +
         time_score * weights.time_preference
     )
-    # Normalize by weight sum
-    weight_sum = weights.professor_rating + weights.walking_distance + weights.time_preference
+    weight_sum = weights.professor_rating + weights.gap_preference + weights.time_preference
     if weight_sum > 0:
         total /= weight_sum
 
     return {
         "professor_score": round(prof_score, 2),
-        "walking_score": round(walk_score, 2),
+        "gap_score": round(gap_score, 2),
         "time_score": round(time_score, 2),
         "total_score": round(total, 2),
     }
@@ -167,14 +163,20 @@ def build_qubo_matrix(
         normalized = s.professor_rating / 5.0
         Q[i, i] += -normalized * weights.professor_rating * 10
 
-    # 4. Walking distance between sections of different courses
+    # 4. Gap between classes penalty (strong — treat as semi-hard constraint)
+    LAMBDA_GAP = 50.0  # strong enough to override soft preferences
     for i in range(N):
         for j in range(i + 1, N):
             if sections[i].course_id != sections[j].course_id:
-                walk = _compute_pairwise_walk(sections[i], sections[j])
-                if walk > 0:
-                    normalized = min(walk / 15.0, 1.0)
-                    Q[i, j] += normalized * weights.walking_distance * 10
+                gaps = _compute_pairwise_gaps(sections[i], sections[j])
+                for gap in gaps:
+                    violation = False
+                    if preferences.min_gap is not None and gap < preferences.min_gap:
+                        violation = True
+                    if preferences.max_gap is not None and gap > preferences.max_gap:
+                        violation = True
+                    if violation:
+                        Q[i, j] += LAMBDA_GAP
 
     # 5. Time preferences (diagonal penalties)
     for i, s in enumerate(sections):

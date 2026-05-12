@@ -37,7 +37,7 @@ class ScheduleResult:
     sections: list[Section]
     total_score: float
     professor_score: float
-    walking_score: float
+    gap_score: float
     time_score: float
     solver: str
     bitstring: str = ""
@@ -49,10 +49,12 @@ class TimePreference:
     lunch_window: tuple[str, str] | None = ("11:30", "13:00")
     no_early_morning: bool = True  # penalize before 9am
     no_evening: bool = False  # penalize after 5pm
+    min_gap: int | None = None  # minimum minutes between classes
+    max_gap: int | None = None  # maximum minutes between classes
 
 
 @dataclass
 class PriorityWeights:
     professor_rating: float = 0.4
-    walking_distance: float = 0.3
+    gap_preference: float = 0.3
     time_preference: float = 0.3

@@ -21,7 +21,7 @@ export interface Schedule {
   sections: Section[];
   total_score: number;
   professor_score: number;
-  walking_score: number;
+  gap_score: number;
   time_score: number;
   solver: string;
 }
@@ -54,10 +54,12 @@ export interface OptimizationRequest {
     lunch_window: string[] | null;
     no_early_morning: boolean;
     no_evening: boolean;
+    min_gap: number | null;
+    max_gap: number | null;
   };
   weights: {
     professor_rating: number;
-    walking_distance: number;
+    gap_preference: number;
     time_preference: number;
   };
   num_results: number;

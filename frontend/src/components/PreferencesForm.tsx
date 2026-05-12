@@ -16,10 +16,14 @@ interface Props {
   setLunchStartHour: (v: number) => void;
   lunchEndHour: number;
   setLunchEndHour: (v: number) => void;
+  minGap: number | null;
+  setMinGap: (v: number | null) => void;
+  maxGap: number | null;
+  setMaxGap: (v: number | null) => void;
   profWeight: number;
   setProfWeight: (v: number) => void;
-  walkWeight: number;
-  setWalkWeight: (v: number) => void;
+  gapWeight: number;
+  setGapWeight: (v: number) => void;
   timeWeight: number;
   setTimeWeight: (v: number) => void;
   blockedSlots: Set<string>;
@@ -60,8 +64,10 @@ export function PreferencesForm(props: Props) {
     eveningAfter, setEveningAfter,
     lunchStartHour, setLunchStartHour,
     lunchEndHour, setLunchEndHour,
+    minGap, setMinGap,
+    maxGap, setMaxGap,
     profWeight, setProfWeight,
-    walkWeight, setWalkWeight,
+    gapWeight, setGapWeight,
     timeWeight, setTimeWeight,
     blockedSlots, toggleBlocked,
     autoBlockedSlots,
@@ -231,6 +237,46 @@ export function PreferencesForm(props: Props) {
         </div>
       </div>
 
+      {/* Gap between classes */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-3">Time Between Classes</label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <span className="text-xs text-gray-400 block mb-1">Minimum gap</span>
+            <select
+              value={minGap ?? 'none'}
+              onChange={e => setMinGap(e.target.value === 'none' ? null : Number(e.target.value))}
+              className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+            >
+              <option value="none">None</option>
+              <option value="10">10 min</option>
+              <option value="15">15 min</option>
+              <option value="20">20 min</option>
+              <option value="30">30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">1 hour</option>
+            </select>
+          </div>
+          <div>
+            <span className="text-xs text-gray-400 block mb-1">Maximum gap</span>
+            <select
+              value={maxGap ?? 'none'}
+              onChange={e => setMaxGap(e.target.value === 'none' ? null : Number(e.target.value))}
+              className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+            >
+              <option value="none">None</option>
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">1 hour</option>
+              <option value="90">1.5 hours</option>
+              <option value="120">2 hours</option>
+              <option value="180">3 hours</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-3">Priority Weights</label>
         <div className="space-y-3">
@@ -248,13 +294,13 @@ export function PreferencesForm(props: Props) {
           </div>
           <div>
             <div className="flex justify-between text-xs text-gray-400 mb-1">
-              <span>Walking Distance</span>
-              <span>{Math.round(walkWeight * 100)}%</span>
+              <span>Class Gap Preference</span>
+              <span>{Math.round(gapWeight * 100)}%</span>
             </div>
             <input
               type="range"
-              min="0" max="100" value={walkWeight * 100}
-              onChange={e => setWalkWeight(Number(e.target.value) / 100)}
+              min="0" max="100" value={gapWeight * 100}
+              onChange={e => setGapWeight(Number(e.target.value) / 100)}
               className="w-full accent-red-500"
             />
           </div>

@@ -47,7 +47,7 @@ export function ScheduleResults({ schedules, selectedIndex, onSelect, meta }: Pr
             <div className="flex gap-3 text-xs text-gray-500">
               <span>Prof <span className="text-yellow-400">★ {(schedule.professor_score / 20).toFixed(1)}</span></span>
               <span>Time <span className="text-blue-400">{schedule.time_score.toFixed(0)}%</span></span>
-              <span>Walk <span className="text-emerald-400">{schedule.walking_score.toFixed(0)}%</span></span>
+              <span>Gap <span className="text-emerald-400">{schedule.gap_score.toFixed(0)}%</span></span>
             </div>
             <div className="flex flex-wrap gap-1 mt-2">
               {schedule.sections.map(s => (

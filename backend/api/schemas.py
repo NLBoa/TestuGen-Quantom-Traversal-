@@ -13,11 +13,13 @@ class TimePreferenceInput(BaseModel):
     lunch_window: Optional[List[str]] = ["11:30", "13:00"]
     no_early_morning: bool = True
     no_evening: bool = False
+    min_gap: Optional[int] = None  # minimum minutes between classes, None = don't care
+    max_gap: Optional[int] = None  # maximum minutes between classes, None = don't care
 
 
 class PriorityWeightsInput(BaseModel):
     professor_rating: float = 0.4
-    walking_distance: float = 0.3
+    gap_preference: float = 0.3
     time_preference: float = 0.3
 
 
@@ -53,7 +55,7 @@ class ScheduleOut(BaseModel):
     sections: list[SectionOut]
     total_score: float
     professor_score: float
-    walking_score: float
+    gap_score: float
     time_score: float
     solver: str
 

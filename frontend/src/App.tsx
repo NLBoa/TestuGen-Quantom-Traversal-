@@ -17,8 +17,10 @@ function App() {
   const [eveningAfter, setEveningAfter] = useState(17);
   const [lunchStartHour, setLunchStartHour] = useState(11);
   const [lunchEndHour, setLunchEndHour] = useState(13);
+  const [minGap, setMinGap] = useState<number | null>(null);
+  const [maxGap, setMaxGap] = useState<number | null>(null);
   const [profWeight, setProfWeight] = useState(0.4);
-  const [walkWeight, setWalkWeight] = useState(0.3);
+  const [gapWeight, setGapWeight] = useState(0.3);
   const [timeWeight, setTimeWeight] = useState(0.3);
   const [blockedSlots, setBlockedSlots] = useState<Set<string>>(new Set());
   const [solver, setSolver] = useState('qaoa');
@@ -83,7 +85,7 @@ function App() {
       });
     });
 
-    const total = profWeight + walkWeight + timeWeight || 1;
+    const total = profWeight + gapWeight + timeWeight || 1;
 
     const request: OptimizationRequest = {
       course_ids: selectedCourses.map(c => c.course_id),
@@ -93,10 +95,12 @@ function App() {
         lunch_window: lunchBreak ? [`${lunchStartHour}:00`, `${lunchEndHour}:00`] : null,
         no_early_morning: noEarlyMorning,
         no_evening: noEvening,
+        min_gap: minGap,
+        max_gap: maxGap,
       },
       weights: {
         professor_rating: profWeight / total,
-        walking_distance: walkWeight / total,
+        gap_preference: gapWeight / total,
         time_preference: timeWeight / total,
       },
       num_results: 5,
@@ -139,8 +143,10 @@ function App() {
                 eveningAfter={eveningAfter} setEveningAfter={setEveningAfter}
                 lunchStartHour={lunchStartHour} setLunchStartHour={setLunchStartHour}
                 lunchEndHour={lunchEndHour} setLunchEndHour={setLunchEndHour}
+                minGap={minGap} setMinGap={setMinGap}
+                maxGap={maxGap} setMaxGap={setMaxGap}
                 profWeight={profWeight} setProfWeight={setProfWeight}
-                walkWeight={walkWeight} setWalkWeight={setWalkWeight}
+                gapWeight={gapWeight} setGapWeight={setGapWeight}
                 timeWeight={timeWeight} setTimeWeight={setTimeWeight}
                 blockedSlots={blockedSlots} toggleBlocked={toggleBlocked}
                 autoBlockedSlots={autoBlockedSlots}

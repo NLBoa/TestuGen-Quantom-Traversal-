@@ -289,10 +289,12 @@ async def optimize(request: OptimizationRequest):
         lunch_window=tuple(request.preferences.lunch_window) if request.preferences.lunch_window else None,
         no_early_morning=request.preferences.no_early_morning,
         no_evening=request.preferences.no_evening,
+        min_gap=request.preferences.min_gap,
+        max_gap=request.preferences.max_gap,
     )
     weights = PriorityWeights(
         professor_rating=request.weights.professor_rating,
-        walking_distance=request.weights.walking_distance,
+        gap_preference=request.weights.gap_preference,
         time_preference=request.weights.time_preference,
     )
 
@@ -316,7 +318,7 @@ async def optimize(request: OptimizationRequest):
     for sched in schedules:
         scores = score_schedule(sched.sections, prefs, weights)
         sched.professor_score = scores["professor_score"]
-        sched.walking_score = scores["walking_score"]
+        sched.gap_score = scores["gap_score"]
         sched.time_score = scores["time_score"]
         sched.total_score = scores["total_score"]
 
@@ -362,7 +364,7 @@ async def optimize(request: OptimizationRequest):
             sections=section_outputs,
             total_score=sched.total_score,
             professor_score=sched.professor_score,
-            walking_score=sched.walking_score,
+            gap_score=sched.gap_score,
             time_score=sched.time_score,
             solver=sched.solver,
         ))
