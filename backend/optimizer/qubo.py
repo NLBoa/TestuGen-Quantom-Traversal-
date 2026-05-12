@@ -60,6 +60,80 @@ def _compute_pairwise_walk(sec_a: Section, sec_b: Section) -> float:
     return max_walk
 
 
+def score_schedule(
+    sections: list[Section],
+    preferences: TimePreference,
+    weights: PriorityWeights,
+) -> dict:
+    """Compute normalized scores for a schedule. Higher = better.
+    Returns dict with professor_score, walking_score, time_score, total_score.
+    All scores on 0-100 scale.
+    """
+    if not sections:
+        return {"professor_score": 0, "walking_score": 0, "time_score": 0, "total_score": 0}
+
+    # Professor score: average rating out of 5, scaled to 0-100
+    prof_score = (sum(s.professor_rating for s in sections) / len(sections)) / 5.0 * 100
+
+    # Walking score: 100 = no walking, decreases with walk time
+    import itertools
+    total_walk = 0.0
+    pairs = 0
+    for a, b in itertools.combinations(sections, 2):
+        walk = _compute_pairwise_walk(a, b)
+        if walk > 0:
+            total_walk += walk
+            pairs += 1
+    # Max walk ~15min between buildings. More walk = lower score.
+    if pairs > 0:
+        avg_walk = total_walk / pairs
+        walk_score = max(0, 100 - (avg_walk / 15.0) * 100)
+    else:
+        walk_score = 100.0
+
+    # Time score: 100 = no conflicts with preferences, penalty per violation
+    time_penalties = 0
+    total_meetings = 0
+    for s in sections:
+        for meeting in s.meetings:
+            total_meetings += 1
+            for blocked in preferences.blocked_times:
+                if _meeting_in_blocked(meeting, blocked):
+                    time_penalties += 1
+
+            if preferences.no_early_morning and meeting.start_time < 540:
+                time_penalties += 1
+
+            if preferences.no_evening and meeting.end_time > 1020:
+                time_penalties += 1
+
+            if preferences.lunch_window:
+                ls = _parse_time(preferences.lunch_window[0])
+                le = _parse_time(preferences.lunch_window[1])
+                if meeting.start_time < le and ls < meeting.end_time:
+                    time_penalties += 1
+
+    time_score = max(0, 100 - (time_penalties / max(total_meetings, 1)) * 100)
+
+    # Weighted total
+    total = (
+        prof_score * weights.professor_rating +
+        walk_score * weights.walking_distance +
+        time_score * weights.time_preference
+    )
+    # Normalize by weight sum
+    weight_sum = weights.professor_rating + weights.walking_distance + weights.time_preference
+    if weight_sum > 0:
+        total /= weight_sum
+
+    return {
+        "professor_score": round(prof_score, 2),
+        "walking_score": round(walk_score, 2),
+        "time_score": round(time_score, 2),
+        "total_score": round(total, 2),
+    }
+
+
 def build_qubo_matrix(
     sections: list[Section],
     preferences: TimePreference,

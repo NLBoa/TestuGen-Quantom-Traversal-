@@ -8,7 +8,7 @@ from ..data import umdio, planetterp
 from ..data.cache import cache
 from ..data.buildings import get_building_coords
 from ..optimizer.models import Section, Meeting, TimePreference, PriorityWeights
-from ..optimizer.qubo import build_qubo_matrix
+from ..optimizer.qubo import build_qubo_matrix, score_schedule
 from ..optimizer.qaoa import solve_qaoa
 from ..optimizer.classical import brute_force_solve, greedy_solve
 from .. import config
@@ -312,22 +312,27 @@ async def optimize(request: OptimizationRequest):
             classical_results = greedy_solve(sections, request.course_ids, request.num_results)
         schedules.extend(classical_results)
 
-    if request.solver == "both" and schedules:
-        # Guarantee mix: top results from each solver
-        qaoa_scheds = sorted([s for s in schedules if s.solver == "qaoa"], key=lambda s: -s.total_score)
-        classical_scheds = sorted([s for s in schedules if s.solver == "classical"], key=lambda s: -s.total_score)
-        half = max(1, request.num_results // 2)
-        schedules = classical_scheds[:half] + qaoa_scheds[:half]
-        # Fill remaining slots from either
-        remaining = request.num_results - len(schedules)
-        if remaining > 0:
-            used = {id(s) for s in schedules}
-            extras = sorted([s for s in classical_scheds + qaoa_scheds if id(s) not in used], key=lambda s: -s.total_score)
-            schedules.extend(extras[:remaining])
-        schedules.sort(key=lambda s: -s.total_score)
-    else:
-        schedules.sort(key=lambda s: -s.total_score)
-        schedules = schedules[:request.num_results]
+    # Re-score ALL schedules uniformly using user preferences and weights
+    for sched in schedules:
+        scores = score_schedule(sched.sections, prefs, weights)
+        sched.professor_score = scores["professor_score"]
+        sched.walking_score = scores["walking_score"]
+        sched.time_score = scores["time_score"]
+        sched.total_score = scores["total_score"]
+
+    # Deduplicate: same set of sections = same schedule regardless of solver
+    seen_section_sets: set[frozenset[str]] = set()
+    unique_schedules = []
+    for sched in schedules:
+        key = frozenset(s.section_id for s in sched.sections)
+        if key not in seen_section_sets:
+            seen_section_sets.add(key)
+            unique_schedules.append(sched)
+    schedules = unique_schedules
+
+    # Sort by total_score (higher = better fit for user preferences)
+    schedules.sort(key=lambda s: -s.total_score)
+    schedules = schedules[:request.num_results]
 
     schedule_outputs = []
     for sched in schedules:

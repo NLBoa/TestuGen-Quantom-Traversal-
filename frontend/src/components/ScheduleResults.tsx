@@ -41,9 +41,13 @@ export function ScheduleResults({ schedules, selectedIndex, onSelect, meta }: Pr
                 {schedule.solver === 'qaoa' ? 'QAOA' : 'Classical'}
               </span>
             </div>
-            <div className="flex gap-4 text-xs text-gray-400">
-              <span>Avg Prof Rating: <span className="text-yellow-400">{schedule.professor_score.toFixed(2)}</span></span>
-              <span>Score: <span className="text-green-400">{schedule.total_score.toFixed(1)}</span></span>
+            <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+              <span>Match: <span className="text-green-400 font-semibold">{schedule.total_score.toFixed(0)}%</span></span>
+            </div>
+            <div className="flex gap-3 text-xs text-gray-500">
+              <span>Prof <span className="text-yellow-400">★ {(schedule.professor_score / 20).toFixed(1)}</span></span>
+              <span>Time <span className="text-blue-400">{schedule.time_score.toFixed(0)}%</span></span>
+              <span>Walk <span className="text-emerald-400">{schedule.walking_score.toFixed(0)}%</span></span>
             </div>
             <div className="flex flex-wrap gap-1 mt-2">
               {schedule.sections.map(s => (
