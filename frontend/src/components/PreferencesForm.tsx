@@ -72,55 +72,65 @@ export function PreferencesForm(props: Props) {
       {/* Section label */}
       <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Filters</h3>
 
-      {/* Time filters */}
+      {/* Time filters — each row always has fixed height to prevent layout shift */}
       <div className="space-y-2">
         {/* Early morning */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 h-6">
           <label className="flex items-center gap-2 cursor-pointer min-w-0">
             <input type="checkbox" checked={noEarlyMorning} onChange={e => setNoEarlyMorning(e.target.checked)} className="w-3.5 h-3.5 accent-red-500 flex-shrink-0" />
             <span className="text-xs text-gray-300">No early morning</span>
           </label>
-          {noEarlyMorning && (
-            <select value={earlyBefore} onChange={e => setEarlyBefore(Number(e.target.value))} className={sel}>
-              {hourOptions(8, 12).map(o => <option key={o.value} value={o.value}>before {o.label}</option>)}
-            </select>
-          )}
+          <select
+            value={earlyBefore}
+            onChange={e => setEarlyBefore(Number(e.target.value))}
+            disabled={!noEarlyMorning}
+            className={`${sel} ${!noEarlyMorning ? 'opacity-0 pointer-events-none' : ''}`}
+          >
+            {hourOptions(8, 12).map(o => <option key={o.value} value={o.value}>before {o.label}</option>)}
+          </select>
         </div>
 
         {/* Evening */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 h-6">
           <label className="flex items-center gap-2 cursor-pointer min-w-0">
             <input type="checkbox" checked={noEvening} onChange={e => setNoEvening(e.target.checked)} className="w-3.5 h-3.5 accent-red-500 flex-shrink-0" />
             <span className="text-xs text-gray-300">No evening</span>
           </label>
-          {noEvening && (
-            <select value={eveningAfter} onChange={e => setEveningAfter(Number(e.target.value))} className={sel}>
-              {hourOptions(15, 21).map(o => <option key={o.value} value={o.value}>after {o.label}</option>)}
-            </select>
-          )}
+          <select
+            value={eveningAfter}
+            onChange={e => setEveningAfter(Number(e.target.value))}
+            disabled={!noEvening}
+            className={`${sel} ${!noEvening ? 'opacity-0 pointer-events-none' : ''}`}
+          >
+            {hourOptions(15, 21).map(o => <option key={o.value} value={o.value}>after {o.label}</option>)}
+          </select>
         </div>
 
         {/* Lunch */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 h-6">
           <label className="flex items-center gap-2 cursor-pointer min-w-0">
             <input type="checkbox" checked={lunchBreak} onChange={e => setLunchBreak(e.target.checked)} className="w-3.5 h-3.5 accent-red-500 flex-shrink-0" />
             <span className="text-xs text-gray-300">Lunch break</span>
           </label>
-          {lunchBreak && (
-            <span className="flex items-center gap-1 flex-shrink-0">
-              <select
-                value={lunchStartHour}
-                onChange={e => { const v = Number(e.target.value); setLunchStartHour(v); if (v >= lunchEndHour) setLunchEndHour(v + 1); }}
-                className={sel}
-              >
-                {hourOptions(10, 15).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-              <span className="text-[10px] text-gray-600">-</span>
-              <select value={lunchEndHour} onChange={e => setLunchEndHour(Number(e.target.value))} className={sel}>
-                {hourOptions(lunchStartHour + 1, 16).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </span>
-          )}
+          <span className={`flex items-center gap-1 flex-shrink-0 ${!lunchBreak ? 'opacity-0 pointer-events-none' : ''}`}>
+            <select
+              value={lunchStartHour}
+              onChange={e => { const v = Number(e.target.value); setLunchStartHour(v); if (v >= lunchEndHour) setLunchEndHour(v + 1); }}
+              disabled={!lunchBreak}
+              className={sel}
+            >
+              {hourOptions(10, 15).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <span className="text-[10px] text-gray-600">-</span>
+            <select
+              value={lunchEndHour}
+              onChange={e => setLunchEndHour(Number(e.target.value))}
+              disabled={!lunchBreak}
+              className={sel}
+            >
+              {hourOptions(lunchStartHour + 1, 16).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </span>
         </div>
       </div>
 

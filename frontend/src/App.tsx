@@ -139,10 +139,16 @@ function App() {
             <div className="w-7 h-7 bg-red-600 rounded-md flex items-center justify-center font-bold text-xs">T</div>
             <h1 className="text-base font-bold">TerpScheduler</h1>
           </div>
-          <div className="flex items-center gap-4 text-sm">
-            {totalCredits > 0 && (
-              <span className="text-gray-400">Credits: <span className="font-semibold text-white">{totalCredits}</span></span>
-            )}
+          <div className="flex items-center gap-6 text-sm">
+            <a
+              href="https://github.com/Sheel2007/TestuGen"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-white transition-colors text-base"
+            >
+              GitHub
+            </a>
+            <span className="text-gray-400 text-base">Credits: <span className="font-semibold text-white">{totalCredits}</span></span>
             <select
               value={semester}
               onChange={e => setSemester(e.target.value)}
