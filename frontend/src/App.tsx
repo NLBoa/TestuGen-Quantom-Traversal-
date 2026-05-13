@@ -47,7 +47,7 @@ function App() {
     return merged;
   }, [blockedSlots, autoBlockedSlots]);
 
-  const { status, schedules, selectedIndex, setSelectedIndex, error, warnings, meta, runOptimize } = useOptimizer();
+  const { status, schedules, selectedIndex, setSelectedIndex, error, warnings, meta, runOptimize, reset } = useOptimizer();
 
   const handleAddCourse = useCallback((course: CourseResult) => {
     setSelectedCourses(prev => {
@@ -84,6 +84,26 @@ function App() {
       return next;
     });
   }, []);
+
+  function handleClearAll() {
+    if (!window.confirm('Clear all courses, preferences, and results? This cannot be undone.')) return;
+    setSelectedCourses([]);
+    setProfessorPrefs({});
+    setNoEarlyMorning(true);
+    setNoEvening(false);
+    setLunchBreak(true);
+    setEarlyBefore(9);
+    setEveningAfter(17);
+    setLunchStartHour(11);
+    setLunchEndHour(13);
+    setMinGap(null);
+    setMaxGap(null);
+    setProfWeight(0.4);
+    setGapWeight(0.3);
+    setTimeWeight(0.3);
+    setBlockedSlots(new Set());
+    reset();
+  }
 
   function handleOptimize() {
     if (selectedCourses.length === 0) return;
@@ -199,24 +219,33 @@ function App() {
               autoBlockedSlots={autoBlockedSlots}
             />
 
-            {/* Optimize button */}
-            <button
-              onClick={handleOptimize}
-              disabled={selectedCourses.length === 0 || status === 'loading'}
-              className="w-full py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              {status === 'loading' ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Optimizing...
-                </>
-              ) : (
-                'Optimize Schedule'
-              )}
-            </button>
+            {/* Optimize + Clear buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={handleOptimize}
+                disabled={selectedCourses.length === 0 || status === 'loading'}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                {status === 'loading' ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Optimizing...
+                  </>
+                ) : (
+                  'Optimize Schedule'
+                )}
+              </button>
+              <button
+                onClick={handleClearAll}
+                className="px-3 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg transition-colors"
+                title="Clear all"
+              >
+                Clear
+              </button>
+            </div>
 
             {/* Errors & warnings */}
             {error && (

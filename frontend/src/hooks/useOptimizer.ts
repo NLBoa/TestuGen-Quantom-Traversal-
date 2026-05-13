@@ -30,5 +30,14 @@ export function useOptimizer() {
     }
   }
 
-  return { status, schedules, selectedIndex, setSelectedIndex, error, warnings, meta, runOptimize };
+  function reset() {
+    setStatus('idle');
+    setSchedules([]);
+    setSelectedIndex(0);
+    setError('');
+    setWarnings([]);
+    setMeta(null);
+  }
+
+  return { status, schedules, selectedIndex, setSelectedIndex, error, warnings, meta, runOptimize, reset };
 }
