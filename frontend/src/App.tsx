@@ -24,9 +24,7 @@ function App() {
   const [gapWeight, setGapWeight] = useState(0.3);
   const [timeWeight, setTimeWeight] = useState(0.3);
   const [blockedSlots, setBlockedSlots] = useState<Set<string>>(new Set());
-  const [solver, setSolver] = useState('qaoa');
 
-  // Auto-blocked slots computed from checkbox filters
   const autoBlockedSlots = useMemo(() => {
     const auto = new Set<string>();
     DAY_ORDER.forEach(day => {
@@ -43,7 +41,6 @@ function App() {
     return auto;
   }, [noEarlyMorning, noEvening, lunchBreak, earlyBefore, eveningAfter, lunchStartHour, lunchEndHour]);
 
-  // Merged set for API requests
   const allBlockedSlots = useMemo(() => {
     const merged = new Set(blockedSlots);
     autoBlockedSlots.forEach(s => merged.add(s));
@@ -122,64 +119,85 @@ function App() {
         time_preference: timeWeight / total,
       },
       num_results: 5,
-      solver,
+      solver: 'both',
     };
 
     runOptimize(request);
   }
 
+  const totalCredits = selectedCourses.reduce((sum, c) => {
+    const n = parseInt(c.credits);
+    return sum + (isNaN(n) ? 0 : n);
+  }, 0);
+
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <header className="border-b border-gray-800 bg-gray-900/80 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
-          <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center font-bold text-sm">T</div>
-          <div>
-            <h1 className="text-xl font-bold">TerpScheduler</h1>
-            <p className="text-xs text-gray-500">Quantum-Optimized Course Scheduling for UMD</p>
+    <div className="h-screen bg-gray-950 text-white flex flex-col overflow-hidden">
+      {/* Header */}
+      <header className="flex-shrink-0 border-b border-gray-800 bg-gray-900/80 backdrop-blur z-30">
+        <div className="px-5 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 bg-red-600 rounded-md flex items-center justify-center font-bold text-xs">T</div>
+            <h1 className="text-base font-bold">TerpScheduler</h1>
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            {totalCredits > 0 && (
+              <span className="text-gray-400">Credits: <span className="font-semibold text-white">{totalCredits}</span></span>
+            )}
+            <select
+              value={semester}
+              onChange={e => setSemester(e.target.value)}
+              className="px-3 py-1 bg-gray-800 border border-gray-700 rounded-md text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-500"
+            >
+              <option value="202608">Fall 2026</option>
+              <option value="202601">Spring 2026</option>
+              <option value="202508">Fall 2025</option>
+              <option value="202501">Spring 2025</option>
+            </select>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
-          <div className="space-y-6">
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-              <CourseSearch
-                selectedCourses={selectedCourses}
-                onAdd={handleAddCourse}
-                onRemove={handleRemoveCourse}
-                professorPrefs={professorPrefs}
-                onProfessorChange={handleProfessorChange}
-                semester={semester}
-              />
-            </div>
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left sidebar */}
+        <aside className="w-[320px] flex-shrink-0 border-r border-gray-800 bg-gray-900/40 overflow-y-auto">
+          <div className="p-4 space-y-4">
+            {/* Course search */}
+            <CourseSearch
+              selectedCourses={selectedCourses}
+              onAdd={handleAddCourse}
+              onRemove={handleRemoveCourse}
+              professorPrefs={professorPrefs}
+              onProfessorChange={handleProfessorChange}
+              semester={semester}
+            />
 
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-              <h2 className="text-base font-semibold mb-4">Preferences</h2>
-              <PreferencesForm
-                noEarlyMorning={noEarlyMorning} setNoEarlyMorning={setNoEarlyMorning}
-                noEvening={noEvening} setNoEvening={setNoEvening}
-                lunchBreak={lunchBreak} setLunchBreak={setLunchBreak}
-                earlyBefore={earlyBefore} setEarlyBefore={setEarlyBefore}
-                eveningAfter={eveningAfter} setEveningAfter={setEveningAfter}
-                lunchStartHour={lunchStartHour} setLunchStartHour={setLunchStartHour}
-                lunchEndHour={lunchEndHour} setLunchEndHour={setLunchEndHour}
-                minGap={minGap} setMinGap={setMinGap}
-                maxGap={maxGap} setMaxGap={setMaxGap}
-                profWeight={profWeight} setProfWeight={setProfWeight}
-                gapWeight={gapWeight} setGapWeight={setGapWeight}
-                timeWeight={timeWeight} setTimeWeight={setTimeWeight}
-                blockedSlots={blockedSlots} toggleBlocked={toggleBlocked}
-                autoBlockedSlots={autoBlockedSlots}
-                solver={solver} setSolver={setSolver}
-                semester={semester} setSemester={setSemester}
-              />
-            </div>
+            {/* Divider */}
+            <div className="border-t border-gray-800" />
 
+            {/* Filters */}
+            <PreferencesForm
+              noEarlyMorning={noEarlyMorning} setNoEarlyMorning={setNoEarlyMorning}
+              noEvening={noEvening} setNoEvening={setNoEvening}
+              lunchBreak={lunchBreak} setLunchBreak={setLunchBreak}
+              earlyBefore={earlyBefore} setEarlyBefore={setEarlyBefore}
+              eveningAfter={eveningAfter} setEveningAfter={setEveningAfter}
+              lunchStartHour={lunchStartHour} setLunchStartHour={setLunchStartHour}
+              lunchEndHour={lunchEndHour} setLunchEndHour={setLunchEndHour}
+              minGap={minGap} setMinGap={setMinGap}
+              maxGap={maxGap} setMaxGap={setMaxGap}
+              profWeight={profWeight} setProfWeight={setProfWeight}
+              gapWeight={gapWeight} setGapWeight={setGapWeight}
+              timeWeight={timeWeight} setTimeWeight={setTimeWeight}
+              blockedSlots={blockedSlots} toggleBlocked={toggleBlocked}
+              autoBlockedSlots={autoBlockedSlots}
+            />
+
+            {/* Optimize button */}
             <button
               onClick={handleOptimize}
               disabled={selectedCourses.length === 0 || status === 'loading'}
-              className="w-full py-3 px-6 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {status === 'loading' ? (
                 <>
@@ -194,33 +212,36 @@ function App() {
               )}
             </button>
 
+            {/* Errors & warnings */}
             {error && (
-              <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 text-sm text-red-300">
+              <div className="bg-red-900/30 border border-red-700 rounded-lg p-2.5 text-xs text-red-300">
                 {error}
               </div>
             )}
-
             {warnings.length > 0 && (
-              <div className="bg-yellow-900/30 border border-yellow-700 rounded-lg p-3 text-sm text-yellow-300">
-                {warnings.map((w, i) => (
-                  <div key={i}>{w}</div>
-                ))}
+              <div className="bg-yellow-900/30 border border-yellow-700 rounded-lg p-2.5 text-xs text-yellow-300">
+                {warnings.map((w, i) => <div key={i}>{w}</div>)}
               </div>
             )}
-
-            <ScheduleResults
-              schedules={schedules}
-              selectedIndex={selectedIndex}
-              onSelect={setSelectedIndex}
-              meta={meta}
-            />
           </div>
+        </aside>
 
-          <div>
+        {/* Right: schedule tabs + calendar */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Schedule tabs */}
+          <ScheduleResults
+            schedules={schedules}
+            selectedIndex={selectedIndex}
+            onSelect={setSelectedIndex}
+            meta={meta}
+          />
+
+          {/* Calendar */}
+          <div className="flex-1 overflow-auto p-4">
             <WeeklyCalendar schedule={schedules[selectedIndex] ?? null} />
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
