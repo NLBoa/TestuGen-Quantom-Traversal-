@@ -2,35 +2,55 @@ import type { Schedule } from '../types';
 
 interface Props {
   schedules: Schedule[];
+  scheduleLabels: number[];
   selectedIndex: number;
   onSelect: (i: number) => void;
+  onRemove: (i: number) => void;
   meta: { numVariables: number; solver: string } | null;
 }
 
-export function ScheduleResults({ schedules, selectedIndex, onSelect, meta }: Props) {
+export function ScheduleResults({ schedules, scheduleLabels, selectedIndex, onSelect, onRemove, meta }: Props) {
   if (schedules.length === 0) return null;
 
   const selected = schedules[selectedIndex];
+
+  function handleRemove(e: React.MouseEvent, i: number) {
+    e.stopPropagation();
+    if (!window.confirm(`Remove Schedule ${scheduleLabels[i] ?? i + 1}?`)) return;
+    onRemove(i);
+  }
 
   return (
     <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900/60 px-4 py-2">
       <div className="flex items-center gap-2 overflow-x-auto">
         {/* Schedule tabs */}
         {schedules.map((schedule, i) => (
-          <button
+          <div
             key={i}
             onClick={() => onSelect(i)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
               i === selectedIndex
                 ? 'bg-red-600 text-white'
                 : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
             }`}
           >
-            Schedule {i + 1}
-            <span className={`ml-1.5 ${i === selectedIndex ? 'text-red-200' : 'text-gray-500'}`}>
-              {schedule.total_score.toFixed(0)}%
+            <span>
+              Schedule {scheduleLabels[i] ?? i + 1}
+              <span className={`ml-1.5 ${i === selectedIndex ? 'text-red-200' : 'text-gray-500'}`}>
+                {schedule.total_score.toFixed(0)}%
+              </span>
             </span>
-          </button>
+            <button
+              onClick={(e) => handleRemove(e, i)}
+              className={`ml-1 w-4 h-4 flex items-center justify-center rounded-full text-[10px] leading-none transition-colors ${
+                i === selectedIndex
+                  ? 'hover:bg-red-500 text-red-200'
+                  : 'hover:bg-gray-600 text-gray-500'
+              }`}
+            >
+              &times;
+            </button>
+          </div>
         ))}
 
         {/* Spacer */}

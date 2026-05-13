@@ -47,7 +47,7 @@ function App() {
     return merged;
   }, [blockedSlots, autoBlockedSlots]);
 
-  const { status, schedules, selectedIndex, setSelectedIndex, error, warnings, meta, runOptimize, reset } = useOptimizer();
+  const { status, schedules, scheduleLabels, selectedIndex, setSelectedIndex, error, warnings, meta, runOptimize, reset, removeSchedule } = useOptimizer();
 
   const handleAddCourse = useCallback((course: CourseResult) => {
     setSelectedCourses(prev => {
@@ -266,8 +266,10 @@ function App() {
           {/* Schedule tabs */}
           <ScheduleResults
             schedules={schedules}
+            scheduleLabels={scheduleLabels}
             selectedIndex={selectedIndex}
             onSelect={setSelectedIndex}
+            onRemove={removeSchedule}
             meta={meta}
           />
 
