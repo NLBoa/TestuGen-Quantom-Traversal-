@@ -48,6 +48,24 @@ def _compute_pairwise_gaps(sec_a: Section, sec_b: Section) -> list[int]:
     gaps = []
     for ma in sec_a.meetings:
         for mb in sec_b.meetings:
+            if ma is mb:
+                continue  # skip same meeting (when computing intra-section gaps)
+            if not _days_overlap(ma.days, mb.days):
+                continue
+            if ma.end_time <= mb.start_time:
+                gaps.append(mb.start_time - ma.end_time)
+            elif mb.end_time <= ma.start_time:
+                gaps.append(ma.start_time - mb.end_time)
+    return gaps
+
+
+def _compute_intra_section_gaps(section: Section) -> list[int]:
+    """Return gaps between meetings within a single section (e.g., lecture + discussion)."""
+    gaps = []
+    meetings = section.meetings
+    for i in range(len(meetings)):
+        for j in range(i + 1, len(meetings)):
+            ma, mb = meetings[i], meetings[j]
             if not _days_overlap(ma.days, mb.days):
                 continue
             if ma.end_time <= mb.start_time:
@@ -96,7 +114,10 @@ def score_schedule(
     prof_score = rating_component + pref_component
 
     # Gap score: how well gaps between classes fit min/max preference
+    # Include both inter-section gaps AND intra-section gaps (lecture + discussion)
     all_gaps = []
+    for s in sections:
+        all_gaps.extend(_compute_intra_section_gaps(s))
     for a, b in itertools.combinations(sections, 2):
         all_gaps.extend(_compute_pairwise_gaps(a, b))
 
@@ -203,6 +224,20 @@ def build_qubo_matrix(
 
     # 4. Gap between classes penalty (strong — treat as semi-hard constraint)
     LAMBDA_GAP = 50.0  # strong enough to override soft preferences
+
+    # 4a. Intra-section gaps (lecture + discussion within same section) — diagonal penalty
+    for i, s in enumerate(sections):
+        intra_gaps = _compute_intra_section_gaps(s)
+        for gap in intra_gaps:
+            violation = False
+            if preferences.min_gap is not None and gap < preferences.min_gap:
+                violation = True
+            if preferences.max_gap is not None and gap > preferences.max_gap:
+                violation = True
+            if violation:
+                Q[i, i] += LAMBDA_GAP
+
+    # 4b. Inter-section gaps (between different courses) — off-diagonal penalty
     for i in range(N):
         for j in range(i + 1, N):
             if sections[i].course_id != sections[j].course_id:
