@@ -4,6 +4,7 @@ import { CourseSearch } from './components/CourseSearch';
 import { PreferencesForm } from './components/PreferencesForm';
 import { WeeklyCalendar } from './components/WeeklyCalendar';
 import { ScheduleResults } from './components/ScheduleResults';
+import { AboutModal } from './components/AboutModal';
 import { useOptimizer } from './hooks/useOptimizer';
 import { DAY_ORDER } from './utils/timeUtils';
 
@@ -24,6 +25,7 @@ function App() {
   const [gapWeight, setGapWeight] = useState(0.3);
   const [timeWeight, setTimeWeight] = useState(0.3);
   const [blockedSlots, setBlockedSlots] = useState<Set<string>>(new Set());
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const autoBlockedSlots = useMemo(() => {
     const auto = new Set<string>();
@@ -160,6 +162,12 @@ function App() {
             <h1 className="text-base font-bold">TerpScheduler</h1>
           </div>
           <div className="flex items-center gap-6 text-sm">
+            <button
+              onClick={() => setAboutOpen(true)}
+              className="text-gray-400 hover:text-white transition-colors text-base bg-transparent border-none cursor-pointer"
+            >
+              About
+            </button>
             <a
               href="https://github.com/Sheel2007/TestuGen"
               target="_blank"
@@ -280,6 +288,9 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* About modal */}
+      <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </div>
   );
 }
