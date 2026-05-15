@@ -26,6 +26,8 @@ interface Props {
   setGapWeight: (v: number) => void;
   timeWeight: number;
   setTimeWeight: (v: number) => void;
+  weightTotal: number;
+  weightsValid: boolean;
   blockedSlots: Set<string>;
   toggleBlocked: (key: string) => void;
   autoBlockedSlots: Set<string>;
@@ -61,6 +63,7 @@ export function PreferencesForm(props: Props) {
     profWeight, setProfWeight,
     gapWeight, setGapWeight,
     timeWeight, setTimeWeight,
+    weightTotal, weightsValid,
     blockedSlots, toggleBlocked,
     autoBlockedSlots,
   } = props;
@@ -234,6 +237,9 @@ export function PreferencesForm(props: Props) {
                 <span>Time Preferences</span><span>{Math.round(timeWeight * 100)}%</span>
               </div>
               <input type="range" min="0" max="100" value={timeWeight * 100} onChange={e => setTimeWeight(Number(e.target.value) / 100)} className="w-full accent-red-500 h-1" />
+            </div>
+            <div className={`text-[10px] font-medium text-center py-1 rounded ${weightsValid ? 'text-gray-500' : 'text-red-400 bg-red-900/20'}`}>
+              Total: {weightTotal}%{!weightsValid && ' — must equal 100%'}
             </div>
           </div>
         )}

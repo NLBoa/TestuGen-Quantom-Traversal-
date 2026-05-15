@@ -147,6 +147,9 @@ function App() {
     runOptimize(request);
   }
 
+  const weightTotal = Math.round(profWeight * 100) + Math.round(gapWeight * 100) + Math.round(timeWeight * 100);
+  const weightsValid = weightTotal === 100;
+
   const totalCredits = selectedCourses.reduce((sum, c) => {
     const n = parseInt(c.credits);
     return sum + (isNaN(n) ? 0 : n);
@@ -223,6 +226,7 @@ function App() {
               profWeight={profWeight} setProfWeight={setProfWeight}
               gapWeight={gapWeight} setGapWeight={setGapWeight}
               timeWeight={timeWeight} setTimeWeight={setTimeWeight}
+              weightTotal={weightTotal} weightsValid={weightsValid}
               blockedSlots={blockedSlots} toggleBlocked={toggleBlocked}
               autoBlockedSlots={autoBlockedSlots}
             />
@@ -231,7 +235,7 @@ function App() {
             <div className="flex gap-2">
               <button
                 onClick={handleOptimize}
-                disabled={selectedCourses.length === 0 || status === 'loading'}
+                disabled={selectedCourses.length === 0 || status === 'loading' || !weightsValid}
                 className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
               >
                 {status === 'loading' ? (
