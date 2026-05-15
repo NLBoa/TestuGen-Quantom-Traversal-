@@ -222,8 +222,8 @@ def build_qubo_matrix(
                 else:
                     Q[i, i] += LAMBDA_PROF_PREF * 0.3  # mild penalty for non-preferred
 
-    # 4. Gap between classes penalty (strong — treat as semi-hard constraint)
-    LAMBDA_GAP = 50.0  # strong enough to override soft preferences
+    # 4. Gap between classes penalty (moderate — influences but never overrides assignment)
+    LAMBDA_GAP = 15.0  # must stay well below LAMBDA_ASSIGN to avoid dropping courses
 
     # 4a. Intra-section gaps (lecture + discussion within same section) — diagonal penalty
     for i, s in enumerate(sections):
@@ -252,12 +252,15 @@ def build_qubo_matrix(
                         Q[i, j] += LAMBDA_GAP
 
     # 5. Time preferences (diagonal penalties)
+    # These are SOFT constraints — penalties must stay well below LAMBDA_ASSIGN
+    # so the solver never prefers dropping a course over violating a time preference.
+    # Max total time penalty per section should be << 100 (LAMBDA_ASSIGN).
     for i, s in enumerate(sections):
         penalty = 0.0
         for meeting in s.meetings:
             for blocked in preferences.blocked_times:
                 if _meeting_in_blocked(meeting, blocked):
-                    penalty += 50.0
+                    penalty += 8.0  # manually blocked slots — moderate penalty
 
             if preferences.no_early_morning and meeting.start_time < 540:
                 penalty += 2.0
@@ -269,7 +272,7 @@ def build_qubo_matrix(
                 ls = _parse_time(preferences.lunch_window[0])
                 le = _parse_time(preferences.lunch_window[1])
                 if meeting.start_time < le and ls < meeting.end_time:
-                    penalty += 3.0
+                    penalty += 3.0  # lunch is soft — prefer to avoid but don't skip courses
 
         Q[i, i] += penalty * weights.time_preference
 

@@ -18,6 +18,7 @@ def _decode_schedule(
     bits: list[int],
     sections: list[Section],
     variable_map: list[VariableMapping],
+    required_courses: set[str] | None = None,
 ) -> ScheduleResult | None:
     selected = [sections[i] for i, b in enumerate(bits) if b == 1]
 
@@ -27,6 +28,10 @@ def _decode_schedule(
     for count in course_count.values():
         if count != 1:
             return None
+
+    # Must include ALL requested courses — never drop a course
+    if required_courses and set(course_count.keys()) != required_courses:
+        return None
 
     for a, b in itertools.combinations(selected, 2):
         if sections_conflict(a, b):
@@ -57,11 +62,12 @@ def brute_force_solve(
     if N > config.MAX_BRUTE_FORCE_VARS:
         return greedy_solve(sections, course_ids, num_results)
 
+    required = set(course_ids)
     results: list[tuple[float, list[int]]] = []
 
     for bits_int in range(2**N):
         bits = [(bits_int >> i) & 1 for i in range(N)]
-        schedule = _decode_schedule(bits, sections, variable_map)
+        schedule = _decode_schedule(bits, sections, variable_map, required)
         if schedule is None:
             continue
         energy = _evaluate(Q, bits)
@@ -71,7 +77,7 @@ def brute_force_solve(
 
     schedules = []
     for energy, bits in results[:num_results]:
-        sched = _decode_schedule(bits, sections, variable_map)
+        sched = _decode_schedule(bits, sections, variable_map, required)
         if sched:
             sched.total_score = -energy
             schedules.append(sched)
