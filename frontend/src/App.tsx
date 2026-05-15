@@ -258,23 +258,27 @@ function App() {
                 Clear
               </button>
             </div>
-
-            {/* Errors & warnings */}
-            {error && (
-              <div className="bg-red-900/30 border border-red-700 rounded-lg p-2.5 text-xs text-red-300">
-                {error}
-              </div>
-            )}
-            {warnings.length > 0 && (
-              <div className="bg-yellow-900/30 border border-yellow-700 rounded-lg p-2.5 text-xs text-yellow-300">
-                {warnings.map((w, i) => <div key={i}>{w}</div>)}
-              </div>
-            )}
           </div>
         </aside>
 
         {/* Right: schedule tabs + calendar */}
         <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Warnings & errors — top of main area so users always see them */}
+          {(error || warnings.length > 0) && (
+            <div className="flex-shrink-0 px-4 pt-2 space-y-1.5">
+              {error && (
+                <div className="bg-red-900/30 border border-red-700 rounded-lg px-3 py-2 text-xs text-red-300">
+                  {error}
+                </div>
+              )}
+              {warnings.length > 0 && (
+                <div className="bg-yellow-900/30 border border-yellow-700 rounded-lg px-3 py-2 text-xs text-yellow-300 space-y-0.5">
+                  {warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Schedule tabs */}
           <ScheduleResults
             schedules={schedules}
