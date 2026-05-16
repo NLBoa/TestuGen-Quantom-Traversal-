@@ -17,7 +17,7 @@ export function CourseSearch({ selectedCourses, onAdd, onRemove, professorPrefs,
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [professorLists, setProfessorLists] = useState<Record<string, string[]>>({});
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const requestIdRef = useRef(0);
 

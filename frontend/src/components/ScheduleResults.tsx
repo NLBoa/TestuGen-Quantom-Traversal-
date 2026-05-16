@@ -11,7 +11,7 @@ interface Props {
   meta: { numVariables: number; solver: string } | null;
 }
 
-export function ScheduleResults({ schedules, scheduleLabels, selectedIndex, onSelect, onRemove, semester, meta }: Props) {
+export function ScheduleResults({ schedules, scheduleLabels, selectedIndex, onSelect, onRemove, semester, meta: _meta }: Props) {
   if (schedules.length === 0) return null;
 
   const selected = schedules[selectedIndex];
