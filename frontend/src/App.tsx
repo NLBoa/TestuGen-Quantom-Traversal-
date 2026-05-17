@@ -316,11 +316,16 @@ function App() {
             onRemove={removeSchedule}
             semester={semester}
             meta={meta}
+            loading={status === 'loading'}
           />
 
           {/* Calendar */}
           <div className="flex-1 overflow-auto p-2 sm:p-4">
-            <WeeklyCalendar schedule={schedules[selectedIndex] ?? null} />
+            <WeeklyCalendar
+              schedule={schedules[selectedIndex] ?? null}
+              loading={status === 'loading'}
+              courseCount={selectedCourses.length}
+            />
           </div>
         </div>
       </div>

@@ -9,9 +9,37 @@ interface Props {
   onRemove: (i: number) => void;
   semester: string;
   meta: { numVariables: number; solver: string } | null;
+  loading?: boolean;
 }
 
-export function ScheduleResults({ schedules, scheduleLabels, selectedIndex, onSelect, onRemove, semester, meta: _meta }: Props) {
+export function ScheduleResults({ schedules, scheduleLabels, selectedIndex, onSelect, onRemove, semester, meta: _meta, loading = false }: Props) {
+  // Skeleton loading tabs
+  if (loading && schedules.length === 0) {
+    return (
+      <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900/60 px-3 sm:px-4 py-2">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-1">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div
+                key={i}
+                className={`flex-shrink-0 px-2 sm:px-2.5 py-1.5 rounded-md animate-pulse ${
+                  i === 1 ? 'bg-red-600/30 w-20 sm:w-28' : 'bg-gray-800/50 w-16 sm:w-24'
+                }`}
+              >
+                <div className="h-3.5 rounded-sm" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-1.5">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-3 w-12 bg-gray-800/40 rounded-sm animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (schedules.length === 0) return null;
 
   const selected = schedules[selectedIndex];

@@ -17,13 +17,13 @@ def _get_client() -> httpx.AsyncClient:
     global _client
     if _client is None or _client.is_closed:
         _client = httpx.AsyncClient(
-            timeout=httpx.Timeout(20.0, connect=5.0),
+            timeout=httpx.Timeout(45.0, connect=15.0),
             limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
         )
     return _client
 
 
-async def _get(path: str, params: dict[str, Any] | None = None, retries: int = 1) -> Any:
+async def _get(path: str, params: dict[str, Any] | None = None, retries: int = 3) -> Any:
     client = _get_client()
     last_exc: Exception | None = None
     for attempt in range(retries + 1):
@@ -39,7 +39,7 @@ async def _get(path: str, params: dict[str, Any] | None = None, retries: int = 1
                 )
                 if attempt < retries:
                     import asyncio
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(1 * (attempt + 1))
                     continue
                 raise last_exc
             resp.raise_for_status()
@@ -49,7 +49,7 @@ async def _get(path: str, params: dict[str, Any] | None = None, retries: int = 1
             logger.warning(f"umd.io timeout (attempt {attempt+1}/{retries+1}): {path} - {e}")
             if attempt < retries:
                 import asyncio
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(1 * (attempt + 1))
                 continue
         except httpx.HTTPStatusError:
             raise
@@ -82,8 +82,13 @@ async def get_sections(course_id: str, semester: str) -> list[dict]:
     try:
         sections = await _get(f"/courses/{course_id}/sections", params={"semester": semester})
     except Exception as e:
-        logger.warning(f"Failed to fetch sections for {course_id}: {e}")
-        sections = []
+        logger.warning(f"Failed to fetch sections for {course_id} with semester {semester}: {e}")
+        # Try without semester as fallback
+        try:
+            sections = await _get(f"/courses/{course_id}/sections")
+        except Exception as e2:
+            logger.error(f"Failed to fetch sections for {course_id} without semester: {e2}")
+            sections = []
 
     if sections:
         cache.set(cache_key, sections, config.CACHE_TTL_COURSES)
