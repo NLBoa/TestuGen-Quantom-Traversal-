@@ -146,7 +146,8 @@ async def get_course_sections(course_id: str, semester: str = "202508"):
     if not raw_sections:
         return []
 
-    await umdio.get_all_buildings()
+    # Buildings cached from optimize() call — only fetch if cache miss
+    await umdio.get_all_buildings()  # fast if cached
 
     # Collect unique professor names and course id for batch fetching
     prof_names = set()
@@ -244,15 +245,18 @@ async def optimize(request: OptimizationRequest):
     t_fetch_start = time.monotonic()
 
     async def _fetch_one(cid: str):
+        t0 = time.monotonic()
         try:
-            return cid, await get_course_sections(cid, request.semester)
+            result = await get_course_sections(cid, request.semester)
+            logger.info(f"⏱ fetch {cid}: {time.monotonic() - t0:.1f}s, {len(result)} sections")
+            return cid, result
         except Exception as e:
-            logger.error(f"Failed to fetch sections for {cid}: {e}")
+            logger.error(f"⏱ fetch {cid}: ERROR after {time.monotonic() - t0:.1f}s: {e}")
             return cid, []
 
     fetch_results = await asyncio.gather(*[_fetch_one(cid) for cid in request.course_ids])
     t_fetch_end = time.monotonic()
-    logger.info(f"⏱ FETCH: {t_fetch_end - t_fetch_start:.1f}s for {len(request.course_ids)} courses")
+    logger.info(f"⏱ FETCH TOTAL: {t_fetch_end - t_fetch_start:.1f}s for {len(request.course_ids)} courses")
 
     for cid, course_sections in fetch_results:
         if not course_sections:
