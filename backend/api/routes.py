@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import logging
+import time
 
 from fastapi import APIRouter, HTTPException
 
@@ -108,6 +109,7 @@ async def _fetch_jupiterp_seats(course_id: str) -> dict:
     if cached is not None:
         return cached
 
+    t0 = time.monotonic()
     try:
         client = planetterp._get_client()
         resp = await client.get(
@@ -117,7 +119,7 @@ async def _fetch_jupiterp_seats(course_id: str) -> dict:
         resp.raise_for_status()
         sections = resp.json()
     except Exception as e:
-        logger.warning(f"Jupiterp seat fetch failed for {course_id}: {e}")
+        logger.warning(f"Jupiterp seat fetch failed for {course_id} ({time.monotonic() - t0:.1f}s): {e}")
         return {}
 
     result = {}
@@ -135,6 +137,7 @@ async def _fetch_jupiterp_seats(course_id: str) -> dict:
 
 @router.get("/courses/{course_id}/sections")
 async def get_course_sections(course_id: str, semester: str = "202508"):
+    t0 = time.monotonic()
     try:
         raw_sections = await umdio.get_sections(course_id.upper(), semester)
     except Exception:
@@ -210,6 +213,7 @@ async def get_course_sections(course_id: str, semester: str = "202508"):
             "open_seats": open_seats,
         })
 
+    logger.info(f"⏱ get_course_sections({course_id}): {time.monotonic() - t0:.1f}s, {len(results)} sections")
     return results
 
 
@@ -220,6 +224,7 @@ async def get_buildings():
 
 @router.post("/optimize", response_model=OptimizationResponse)
 async def optimize(request: OptimizationRequest):
+    t_start = time.monotonic()
     if not request.course_ids:
         raise HTTPException(status_code=400, detail="No courses provided")
     if len(request.course_ids) > 8:
@@ -236,6 +241,8 @@ async def optimize(request: OptimizationRequest):
     warnings_list = []
     sections: list[Section] = []
 
+    t_fetch_start = time.monotonic()
+
     async def _fetch_one(cid: str):
         try:
             return cid, await get_course_sections(cid, request.semester)
@@ -244,6 +251,8 @@ async def optimize(request: OptimizationRequest):
             return cid, []
 
     fetch_results = await asyncio.gather(*[_fetch_one(cid) for cid in request.course_ids])
+    t_fetch_end = time.monotonic()
+    logger.info(f"⏱ FETCH: {t_fetch_end - t_fetch_start:.1f}s for {len(request.course_ids)} courses")
 
     for cid, course_sections in fetch_results:
         if not course_sections:
@@ -316,7 +325,10 @@ async def optimize(request: OptimizationRequest):
         time_preference=request.weights.time_preference,
     )
 
+    t_qubo_start = time.monotonic()
     Q, variable_map = build_qubo_matrix(sections, prefs, weights, request.professor_prefs)
+    t_qubo_end = time.monotonic()
+    logger.info(f"⏱ QUBO: {t_qubo_end - t_qubo_start:.2f}s for {len(sections)} sections")
 
     solver_used = request.solver
     schedules = []
@@ -324,14 +336,20 @@ async def optimize(request: OptimizationRequest):
     num_courses = len(request.course_ids)
 
     if request.solver in ("qaoa", "both"):
+        t_qaoa_start = time.monotonic()
         qaoa_results = solve_qaoa(Q, sections, variable_map, request.course_ids, request.num_results)
+        t_qaoa_end = time.monotonic()
+        logger.info(f"⏱ QAOA: {t_qaoa_end - t_qaoa_start:.1f}s, {len(qaoa_results)} results")
         schedules.extend(qaoa_results)
 
     # Skip classical for large inputs — QAOA sampling handles these fast
     # Threshold: >4 courses or >20 total sections
     skip_classical = num_courses > 4 or N > 20
     if request.solver in ("classical", "both") and not skip_classical:
+        t_class_start = time.monotonic()
         classical_results = brute_force_solve(Q, sections, variable_map, request.course_ids, request.num_results)
+        t_class_end = time.monotonic()
+        logger.info(f"⏱ CLASSICAL: {t_class_end - t_class_start:.1f}s, {len(classical_results)} results")
         schedules.extend(classical_results)
     elif skip_classical:
         logger.info(f"Skipping classical solver: {num_courses} courses, {N} sections")
@@ -401,6 +419,9 @@ async def optimize(request: OptimizationRequest):
         warnings_list.append(f"All sections full (excluded): {', '.join(full_courses)}")
     if failed_courses:
         warnings_list.append(f"Failed to load: {', '.join(failed_courses)}")
+
+    t_total = time.monotonic() - t_start
+    logger.info(f"⏱ TOTAL optimize: {t_total:.1f}s ({len(sections)} sections, {num_courses} courses, {len(schedule_outputs)} results)")
 
     return OptimizationResponse(
         schedules=schedule_outputs,
