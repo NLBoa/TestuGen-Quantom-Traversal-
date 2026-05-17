@@ -32,7 +32,6 @@ const SKELETON_TEMPLATES = [
 function generateSkeletonBlocks(courseCount: number) {
   // Pick a non-conflicting subset of templates
   const blocks: { day: string; start: number; duration: number; colorIdx: number }[] = [];
-  const used: number[] = [];
 
   // Alternate MWF and TuTh for realism
   let mwfIdx = 0;
