@@ -183,6 +183,14 @@ function App() {
               About
             </button>
             <a
+              href="https://forms.gle/gu3QN7GNWQkMjaEL8"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-white transition-colors text-sm sm:text-base flex-shrink-0"
+            >
+              Feedback
+            </a>
+            <a
               href="https://github.com/Sheel2007/TestuGen"
               target="_blank"
               rel="noopener noreferrer"
