@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { CourseResult, OptimizationRequest, BlockedSlot } from './types';
 import { CourseSearch } from './components/CourseSearch';
 import { PreferencesForm } from './components/PreferencesForm';
@@ -7,6 +7,7 @@ import { ScheduleResults } from './components/ScheduleResults';
 import { AboutModal } from './components/AboutModal';
 import { useOptimizer } from './hooks/useOptimizer';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { warmSectionCache } from './api/client';
 import { DAY_ORDER } from './utils/timeUtils';
 
 function App() {
@@ -62,12 +63,20 @@ function App() {
 
   const { status, schedules, scheduleLabels, selectedIndex, setSelectedIndex, error, warnings, meta, runOptimize, reset, removeSchedule } = useOptimizer();
 
+  // Warm cache for all selected courses on mount + semester change
+  useEffect(() => {
+    selectedCourses.forEach(c => warmSectionCache(c.course_id, semester));
+  }, [semester]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleAddCourse = useCallback((course: CourseResult) => {
     setSelectedCourses(prev => {
       if (prev.some(c => c.course_id === course.course_id)) return prev;
+      // Pre-warm backend cache — sections + professor ratings fetched in background
+      // so optimize is near-instant when user clicks the button
+      warmSectionCache(course.course_id, semester);
       return [...prev, course];
     });
-  }, []);
+  }, [semester]);
 
   const handleRemoveCourse = useCallback((courseId: string) => {
     setSelectedCourses(prev => prev.filter(c => c.course_id !== courseId));

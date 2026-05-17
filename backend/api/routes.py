@@ -289,6 +289,22 @@ async def _fetch_sections_fast(course_id: str, semester: str = "202508") -> list
     return results
 
 
+@router.post("/warm/{course_id}")
+async def warm_cache(course_id: str, semester: str = "202508"):
+    """Pre-fetch sections + professor ratings in background. Called by frontend on course add.
+    Returns immediately — cache warms async.
+    """
+    async def _warm():
+        try:
+            await get_course_sections(course_id.upper(), semester)
+            logger.info(f"Cache warmed: {course_id}")
+        except Exception as e:
+            logger.warning(f"Cache warm failed for {course_id}: {e}")
+
+    asyncio.ensure_future(_warm())
+    return {"status": "warming"}
+
+
 @router.get("/buildings")
 async def get_buildings():
     return await umdio.get_all_buildings()
@@ -318,7 +334,7 @@ async def optimize(request: OptimizationRequest):
     async def _fetch_one(cid: str):
         t0 = time.monotonic()
         try:
-            result = await _fetch_sections_fast(cid, request.semester)
+            result = await get_course_sections(cid, request.semester)
             logger.info(f"⏱ fetch {cid}: {time.monotonic() - t0:.1f}s, {len(result)} sections")
             return cid, result
         except Exception as e:

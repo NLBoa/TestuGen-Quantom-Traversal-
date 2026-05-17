@@ -30,6 +30,13 @@ export async function fetchProfessors(courseId: string, _semester?: string): Pro
   }
 }
 
+export function warmSectionCache(courseId: string, semester: string = '202508'): void {
+  // Fire-and-forget — warms backend cache so optimize is fast
+  fetch(`${API_BASE}/warm/${encodeURIComponent(courseId)}?semester=${semester}`, {
+    method: 'POST',
+  }).catch(() => {}); // ignore errors
+}
+
 export async function optimize(request: OptimizationRequest): Promise<OptimizationResponse> {
   const res = await fetch(`${API_BASE}/optimize`, {
     method: 'POST',
