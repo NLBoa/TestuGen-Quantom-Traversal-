@@ -95,7 +95,7 @@ def _simulate_qaoa_numpy(
     p = config.QAOA_DEPTH
     num_states = 2 ** n
 
-    if n > 20:
+    if n > 18:
         return _sample_qaoa(Q, n, sections, variable_map, course_ids, num_results, coeffs, offset)
 
     cost_diag = np.zeros(num_states)
@@ -127,7 +127,7 @@ def _simulate_qaoa_numpy(
     best_result = None
     best_cost = float("inf")
 
-    for trial in range(3):
+    for trial in range(2):
         rng = np.random.RandomState(42 + trial)
         init_params = rng.uniform(0, np.pi, 2 * p)
 
@@ -195,7 +195,10 @@ def _simulate_qaoa_numpy(
             continue
 
         prof_score = sum(s.professor_rating for s in selected) / len(selected)
-        energy = float(np.dot(bits, Q @ bits))
+        with np.errstate(all='ignore'):
+            energy = float(np.dot(bits, Q @ bits))
+        if not np.isfinite(energy):
+            energy = 1e12
 
         schedules.append(ScheduleResult(
             sections=selected,
@@ -259,7 +262,8 @@ def _sample_qaoa(
                 chosen = rng.choice(indices)
                 bits[chosen] = 1
 
-        energy = float(np.array(bits, dtype=np.float64) @ Q @ np.array(bits, dtype=np.float64))
+        with np.errstate(all='ignore'):
+            energy = float(np.array(bits, dtype=np.float64) @ Q @ np.array(bits, dtype=np.float64))
         if not np.isfinite(energy):
             energy = 1e12  # treat as very bad
         candidates.append((energy, bits))

@@ -10,7 +10,7 @@ from ..data.buildings import get_building_coords
 from ..optimizer.models import Section, Meeting, TimePreference, PriorityWeights
 from ..optimizer.qubo import build_qubo_matrix, score_schedule
 from ..optimizer.qaoa import solve_qaoa
-from ..optimizer.classical import brute_force_solve, greedy_solve
+from ..optimizer.classical import brute_force_solve
 from .. import config
 from .schemas import (
     OptimizationRequest,
@@ -230,21 +230,24 @@ async def optimize(request: OptimizationRequest):
     except Exception:
         logger.warning("Failed to fetch buildings, using fallback coords")
 
-    # Fetch sections sequentially to avoid overwhelming umd.io
+    # Fetch ALL course sections in parallel for speed
     failed_courses = []
     full_courses = []  # courses where ALL sections have 0 open seats
     warnings_list = []
     sections: list[Section] = []
 
-    for cid in request.course_ids:
+    async def _fetch_one(cid: str):
         try:
-            course_sections = await get_course_sections(cid, request.semester)
-            if not course_sections:
-                failed_courses.append(cid)
+            return cid, await get_course_sections(cid, request.semester)
         except Exception as e:
             logger.error(f"Failed to fetch sections for {cid}: {e}")
+            return cid, []
+
+    fetch_results = await asyncio.gather(*[_fetch_one(cid) for cid in request.course_ids])
+
+    for cid, course_sections in fetch_results:
+        if not course_sections:
             failed_courses.append(cid)
-            course_sections = []
 
         # Filter out sections with no open seats
         open_sections = [s for s in course_sections if int(s.get("open_seats", 0) or 0) > 0]
@@ -323,10 +326,7 @@ async def optimize(request: OptimizationRequest):
         schedules.extend(qaoa_results)
 
     if request.solver in ("classical", "both"):
-        if len(sections) <= config.MAX_BRUTE_FORCE_VARS:
-            classical_results = brute_force_solve(Q, sections, variable_map, request.course_ids, request.num_results)
-        else:
-            classical_results = greedy_solve(sections, request.course_ids, request.num_results)
+        classical_results = brute_force_solve(Q, sections, variable_map, request.course_ids, request.num_results)
         schedules.extend(classical_results)
 
     # Re-score ALL schedules uniformly using user preferences and weights
