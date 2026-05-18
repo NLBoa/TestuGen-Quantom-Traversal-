@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import type { Schedule } from '../types';
+import type { Schedule, Section, Meeting } from '../types';
 import { minutesToTime, parseDays, DAY_ORDER, COURSE_COLORS } from '../utils/timeUtils';
 
 interface Props {
@@ -11,31 +11,36 @@ interface Props {
 const START_HOUR = 8;
 const END_HOUR = 22;
 
-const DAY_LABELS_FULL: Record<string, string> = { M: 'Mon', Tu: 'Tue', W: 'Wed', Th: 'Thu', F: 'Fri' };
-const DAY_LABELS_SHORT: Record<string, string> = { M: 'M', Tu: 'T', W: 'W', Th: 'R', F: 'F' };
+const DAY_LABELS_FULL: Record<string, string> = { M: 'Mon', Tu: 'Tue', W: 'Wed', Th: 'Thu', F: 'Fri', Other: 'Other' };
+const DAY_LABELS_SHORT: Record<string, string> = { M: 'M', Tu: 'T', W: 'W', Th: 'R', F: 'F', Other: '~' };
+
+/** A meeting is async if it has no days or zero start/end time */
+function isAsyncMeeting(m: Meeting): boolean {
+  return !m.days || m.days.trim() === '' || (m.start_time === 0 && m.end_time === 0);
+}
+
+/** Check if a section is fully async (all meetings async) */
+function isAsyncSection(s: Section): boolean {
+  return s.meetings.length > 0 && s.meetings.every(isAsyncMeeting);
+}
 
 // Skeleton block templates — realistic UMD schedule patterns
 const SKELETON_TEMPLATES = [
-  // MWF 50-min classes
-  { days: ['M', 'W', 'F'], start: 540, duration: 50 },   // 9:00
-  { days: ['M', 'W', 'F'], start: 600, duration: 50 },   // 10:00
-  { days: ['M', 'W', 'F'], start: 660, duration: 50 },   // 11:00
-  { days: ['M', 'W', 'F'], start: 780, duration: 50 },   // 1:00
-  { days: ['M', 'W', 'F'], start: 840, duration: 50 },   // 2:00
-  // TuTh 75-min classes
-  { days: ['Tu', 'Th'], start: 570, duration: 75 },       // 9:30
-  { days: ['Tu', 'Th'], start: 690, duration: 75 },       // 11:30
-  { days: ['Tu', 'Th'], start: 810, duration: 75 },       // 1:30
-  { days: ['Tu', 'Th'], start: 930, duration: 75 },       // 3:30
+  { days: ['M', 'W', 'F'], start: 540, duration: 50 },
+  { days: ['M', 'W', 'F'], start: 600, duration: 50 },
+  { days: ['M', 'W', 'F'], start: 660, duration: 50 },
+  { days: ['M', 'W', 'F'], start: 780, duration: 50 },
+  { days: ['M', 'W', 'F'], start: 840, duration: 50 },
+  { days: ['Tu', 'Th'], start: 570, duration: 75 },
+  { days: ['Tu', 'Th'], start: 690, duration: 75 },
+  { days: ['Tu', 'Th'], start: 810, duration: 75 },
+  { days: ['Tu', 'Th'], start: 930, duration: 75 },
 ];
 
 function generateSkeletonBlocks(courseCount: number) {
-  // Pick a non-conflicting subset of templates
   const blocks: { day: string; start: number; duration: number; colorIdx: number }[] = [];
-
-  // Alternate MWF and TuTh for realism
   let mwfIdx = 0;
-  let tuthIdx = 5; // TuTh templates start at index 5
+  let tuthIdx = 5;
 
   for (let c = 0; c < Math.min(courseCount, 8); c++) {
     const template = c % 2 === 0
@@ -45,35 +50,33 @@ function generateSkeletonBlocks(courseCount: number) {
     if (!template) continue;
 
     for (const day of template.days) {
-      blocks.push({
-        day,
-        start: template.start,
-        duration: template.duration,
-        colorIdx: c,
-      });
+      blocks.push({ day, start: template.start, duration: template.duration, colorIdx: c });
     }
   }
-
   return blocks;
 }
 
-function CalendarGrid({ hourHeight, timeColWidth, children }: {
+function CalendarGrid({ hourHeight, timeColWidth, hasOtherCol, children, otherContent }: {
   hourHeight: number;
   timeColWidth: number;
+  hasOtherCol: boolean;
   children?: (day: string) => React.ReactNode;
+  otherContent?: React.ReactNode;
 }) {
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+  const dayCols = hasOtherCol ? 6 : 5;
+  const columns = hasOtherCol ? [...DAY_ORDER, 'Other'] : DAY_ORDER;
 
   return (
     <div className="h-full min-w-0">
       {/* Day headers */}
       <div
         className="grid border-b border-gray-800 sticky top-0 bg-gray-950 z-10"
-        style={{ gridTemplateColumns: `${timeColWidth}px repeat(5, 1fr)` }}
+        style={{ gridTemplateColumns: `${timeColWidth}px repeat(${dayCols}, 1fr)` }}
       >
         <div />
-        {DAY_ORDER.map(day => (
-          <div key={day} className="py-1.5 sm:py-2 text-center text-[10px] sm:text-xs font-medium text-gray-400 border-l border-gray-800">
+        {columns.map(day => (
+          <div key={day} className={`py-1.5 sm:py-2 text-center text-[10px] sm:text-xs font-medium border-l border-gray-800 ${day === 'Other' ? 'text-gray-500 bg-gray-900/40' : 'text-gray-400'}`}>
             <span className="hidden sm:inline">{DAY_LABELS_FULL[day]}</span>
             <span className="sm:hidden">{DAY_LABELS_SHORT[day]}</span>
           </div>
@@ -83,7 +86,7 @@ function CalendarGrid({ hourHeight, timeColWidth, children }: {
       {/* Time grid */}
       <div
         className="grid"
-        style={{ gridTemplateColumns: `${timeColWidth}px repeat(5, 1fr)`, height: `${hours.length * hourHeight}px` }}
+        style={{ gridTemplateColumns: `${timeColWidth}px repeat(${dayCols}, 1fr)`, height: `${hours.length * hourHeight}px` }}
       >
         {/* Hour labels */}
         <div className="relative">
@@ -111,6 +114,20 @@ function CalendarGrid({ hourHeight, timeColWidth, children }: {
             {children?.(day)}
           </div>
         ))}
+
+        {/* Other column for async */}
+        {hasOtherCol && (
+          <div className="relative border-l border-gray-800/60 bg-gray-900/20">
+            {hours.map(h => (
+              <div
+                key={h}
+                className="absolute w-full border-t border-gray-800/20"
+                style={{ top: `${(h - START_HOUR) * hourHeight}px`, height: hourHeight }}
+              />
+            ))}
+            {otherContent}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -145,7 +162,6 @@ export function WeeklyCalendar({ schedule, loading = false, courseCount = 4 }: P
 
     return (
       <div className="h-full flex flex-col">
-        {/* Loading status bar */}
         <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 flex items-center gap-3">
           <div className="relative w-5 h-5 flex-shrink-0">
             <svg className="animate-spin w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="none">
@@ -161,9 +177,8 @@ export function WeeklyCalendar({ schedule, loading = false, courseCount = 4 }: P
           </div>
         </div>
 
-        {/* Skeleton calendar */}
         <div className="flex-1 overflow-auto">
-          <CalendarGrid hourHeight={hourHeight} timeColWidth={timeColWidth}>
+          <CalendarGrid hourHeight={hourHeight} timeColWidth={timeColWidth} hasOtherCol={false}>
             {(day) => (
               <>
                 {skeletonBlocks
@@ -171,15 +186,11 @@ export function WeeklyCalendar({ schedule, loading = false, courseCount = 4 }: P
                   .map((block, i) => {
                     const top = ((block.start - START_HOUR * 60) / 60) * hourHeight;
                     const height = (block.duration / 60) * hourHeight;
-
                     return (
                       <div
                         key={`skel-${day}-${i}`}
                         className="absolute left-0.5 right-0.5 rounded overflow-hidden"
-                        style={{
-                          top: `${top}px`,
-                          height: `${Math.max(height, 20)}px`,
-                        }}
+                        style={{ top: `${top}px`, height: `${Math.max(height, 20)}px` }}
                       >
                         <div
                           className="w-full h-full rounded animate-pulse"
@@ -189,15 +200,9 @@ export function WeeklyCalendar({ schedule, loading = false, courseCount = 4 }: P
                           }}
                         >
                           <div className="p-1 sm:px-1.5 sm:py-1 space-y-1">
-                            <div
-                              className="h-2.5 sm:h-3 rounded-sm w-3/4"
-                              style={{ backgroundColor: COURSE_COLORS[block.colorIdx % COURSE_COLORS.length] + '20' }}
-                            />
+                            <div className="h-2.5 sm:h-3 rounded-sm w-3/4" style={{ backgroundColor: COURSE_COLORS[block.colorIdx % COURSE_COLORS.length] + '20' }} />
                             {height > 30 && (
-                              <div
-                                className="h-2 rounded-sm w-1/2"
-                                style={{ backgroundColor: COURSE_COLORS[block.colorIdx % COURSE_COLORS.length] + '12' }}
-                              />
+                              <div className="h-2 rounded-sm w-1/2" style={{ backgroundColor: COURSE_COLORS[block.colorIdx % COURSE_COLORS.length] + '12' }} />
                             )}
                           </div>
                         </div>
@@ -261,20 +266,74 @@ export function WeeklyCalendar({ schedule, loading = false, courseCount = 4 }: P
     );
   }
 
-  // Real schedule
+  // Real schedule — separate async vs timed sections
   const courseColors: Record<string, string> = {};
   const uniqueCourses = [...new Set(schedule.sections.map(s => s.course_id))];
   uniqueCourses.forEach((cid, i) => {
     courseColors[cid] = COURSE_COLORS[i % COURSE_COLORS.length];
   });
 
+  // Collect async sections (all meetings have no days / zero times)
+  const asyncSections = schedule.sections.filter(isAsyncSection);
+  const hasOtherCol = asyncSections.length > 0;
+
+  // For timed sections, also check for individual async meetings within a section
+  // that has some timed meetings (rare but possible)
+
+  const otherContent = hasOtherCol ? (
+    <div className="absolute inset-0 p-0.5 space-y-1 overflow-y-auto">
+      {asyncSections.map((section, idx) => {
+        const color = courseColors[section.course_id];
+        const cardHeight = Math.max(hourHeight * 1.2, 65);
+        return (
+          <div
+            key={`async-${section.section_id}`}
+            className="relative rounded px-1 sm:px-1.5 py-1 overflow-hidden cursor-pointer group transition-all hover:brightness-125 hover:shadow-lg"
+            style={{
+              height: `${cardHeight}px`,
+              backgroundColor: color + '25',
+              borderLeft: `3px solid ${color}`,
+            }}
+          >
+            <div className="text-[9px] sm:text-[11px] font-semibold text-white truncate leading-tight">
+              {section.course_id}
+            </div>
+            <div className="text-[8px] sm:text-[9px] text-gray-400 truncate leading-tight">
+              {section.instructors[0] || 'TBA'}
+            </div>
+            <div className="text-[8px] sm:text-[9px] text-gray-500 truncate leading-tight uppercase">
+              Online Async
+            </div>
+            <div className="text-[8px] sm:text-[9px] text-gray-500 truncate leading-tight">
+              {section.section_id.split('-').pop()}
+            </div>
+
+            {/* Hover tooltip */}
+            <div className="hidden md:group-hover:block absolute left-full top-0 ml-2 z-20 bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-xl w-52 pointer-events-none">
+              <div className="font-semibold text-white text-xs">{section.course_id} - {section.section_id.split('-')[1]}</div>
+              <div className="text-xs text-gray-300 mt-1">{section.instructors.join(', ') || 'TBA'}</div>
+              <div className="text-xs text-gray-400 mt-1">Online Asynchronous</div>
+              <div className="flex gap-3 mt-2 text-[10px]">
+                <span className="text-yellow-400">★ {section.professor_rating.toFixed(1)}</span>
+                <span className="text-green-400">GPA: {section.avg_gpa.toFixed(2)}</span>
+              </div>
+              <div className="text-[10px] text-gray-500 mt-0.5">
+                Seats: {section.open_seats}/{section.total_seats}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  ) : undefined;
+
   return (
-    <CalendarGrid hourHeight={hourHeight} timeColWidth={timeColWidth}>
+    <CalendarGrid hourHeight={hourHeight} timeColWidth={timeColWidth} hasOtherCol={hasOtherCol} otherContent={otherContent}>
       {(day) => (
         <>
           {schedule.sections.map((section) =>
             section.meetings
-              .filter(m => parseDays(m.days).includes(day))
+              .filter(m => !isAsyncMeeting(m) && parseDays(m.days).includes(day))
               .map((meeting, midx) => {
                 const top = ((meeting.start_time - START_HOUR * 60) / 60) * hourHeight;
                 const height = ((meeting.end_time - meeting.start_time) / 60) * hourHeight;
