@@ -282,7 +282,7 @@ export function WeeklyCalendar({ schedule, loading = false, courseCount = 4 }: P
 
   const otherContent = hasOtherCol ? (
     <div className="absolute inset-0 p-0.5 space-y-1 overflow-y-auto">
-      {asyncSections.map((section, idx) => {
+      {asyncSections.map((section) => {
         const color = courseColors[section.course_id];
         const cardHeight = Math.max(hourHeight * 1.2, 65);
         return (
