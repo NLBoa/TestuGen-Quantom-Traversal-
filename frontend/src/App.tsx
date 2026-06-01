@@ -4,6 +4,7 @@ import { CourseSearch } from './components/CourseSearch';
 import { PreferencesForm } from './components/PreferencesForm';
 import { WeeklyCalendar } from './components/WeeklyCalendar';
 import { ScheduleResults } from './components/ScheduleResults';
+import { CampusMap } from './components/CampusMap';
 import { AboutModal } from './components/AboutModal';
 import { useOptimizer } from './hooks/useOptimizer';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -28,6 +29,7 @@ function App() {
   const [timeWeight, setTimeWeight] = useLocalStorage('ts:timeWeight', 0.3);
   const [blockedSlotsArray, setBlockedSlotsArray] = useLocalStorage<string[]>('ts:blocked', []);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [view, setView] = useState<'calendar' | 'map'>('calendar');
 
   // Convert stored array to Set for internal use
   const blockedSlots = useMemo(() => new Set(blockedSlotsArray), [blockedSlotsArray]);
@@ -319,13 +321,49 @@ function App() {
             loading={status === 'loading'}
           />
 
-          {/* Calendar */}
-          <div className="flex-1 overflow-auto p-2 sm:p-4">
-            <WeeklyCalendar
-              schedule={schedules[selectedIndex] ?? null}
-              loading={status === 'loading'}
-              courseCount={selectedCourses.length}
-            />
+          {/* View toggle */}
+          {(schedules.length > 0 || status === 'loading') && (
+            <div className="flex-shrink-0 flex gap-1 px-3 sm:px-4 pt-2">
+              <button
+                onClick={() => setView('calendar')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  view === 'calendar'
+                    ? 'bg-gray-700 text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Calendar
+              </button>
+              <button
+                onClick={() => setView('map')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  view === 'map'
+                    ? 'bg-gray-700 text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+                Campus Map
+              </button>
+            </div>
+          )}
+
+          {/* Calendar / Map */}
+          <div className={`flex-1 min-h-0 ${view === 'calendar' ? 'overflow-auto p-2 sm:p-4' : 'overflow-hidden'}`}>
+            {view === 'calendar' ? (
+              <WeeklyCalendar
+                schedule={schedules[selectedIndex] ?? null}
+                loading={status === 'loading'}
+                courseCount={selectedCourses.length}
+              />
+            ) : (
+              <CampusMap schedule={schedules[selectedIndex] ?? null} />
+            )}
           </div>
         </div>
       </div>
